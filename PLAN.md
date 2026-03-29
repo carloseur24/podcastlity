@@ -15,10 +15,11 @@ Build a proper configuration architecture for the "content-os" video editing pip
 
 ```
 config/
-├── settings.json      # General pipeline settings (already exists)
-├── profiles.json      # Per-content-type behavior (already exists)
-├── filters.json       # Audio filter parameters (already exists)
-└── brand.json         # Branding config (unchanged)
+├── settings.json      # General pipeline settings
+├── profiles.json      # Per-content-type behavior
+├── filters.json       # Audio filter parameters
+├── brand.json         # Branding config
+└── filler_words_es.txt
 ```
 
 ### 1.2 ConfigProvider Class (`scripts/config.py`)
@@ -93,47 +94,39 @@ From FFmpeg `astats` filter:
 
 ---
 
-## Phase 3: Refactoring
+## Phase 3: Pipeline Architecture
 
-### 3.1 Refactor `scripts/audio_preprocess.py`
+### 3.1 Pipeline Orchestrator (`scripts/core/pipeline.py`)
 
-Replace naive filter with AudioEngineer:
-- Call `diagnose()` first
-- Build adaptive filter chain
-- Apply filters
-- Call `validate()` after
-- Write detailed report
+```python
+from scripts.core.pipeline import Pipeline
 
-### 3.2 Refactor `scripts/utils/ffmpeg.py`
+pipeline = Pipeline(workspace=".")
+results = pipeline.run_full(session_id="session_123")
+```
 
-Use ConfigProvider for:
-- FFmpeg path
-- Thread count
-- Default parameters
+### 3.2 Stages (`scripts/core/stages/`)
 
-### 3.3 Refactor `cli.py`
+Each stage has `run(session_id, workspace) -> dict`:
 
-Use ConfigProvider for:
-- All settings access
-- Profile selection
+| Stage | Status | Description |
+|-------|--------|-------------|
+| Ingest | ✅ | Copy files to session directory |
+| Proxies | ✅ | Create proxies and extract audio |
+| Transcribe | ✅ | Whisper speech-to-text |
+| Analyze | ✅ | Silence/filler/energy detection |
+| Cutmap | ✅ | Generate edit decisions |
+| Assemble | ✅ | Trim and concatenate |
+| Export | ✅ | Render final videos |
+
+### 3.3 Profile-Specific Stages
+
+- **Longform**: Ingest → Proxies → Transcribe → Analyze → Cutmap → Assemble → Export
+- **Shorts**: Ingest → Proxies → Prepare → Assemble → Export (Prepare = preprocess + analyze + cutmap)
 
 ---
 
-## Phase 4: Integration
-
-### 4.1 Pipeline Flow
-
-```
-ingest
-└─→ transcribe         (uses master.wav — raw)
-└─→ audio_preprocess   (diagnose → build chain → output master_clean.wav)
-      └─→ analyze      (uses master_clean.wav)
-      └─→ cutmap
-      └→ assemble      (replaces audio with master_clean.wav)
-└─→ export             (run_enhance_audio - EQ/stereo at export-time)
-```
-
-### 4.2 Quality Gates
+## Phase 4: Quality Gates
 
 | Check | Error/Warning | Threshold |
 |-------|---------------|------------|
@@ -144,18 +137,22 @@ ingest
 
 ---
 
-## Implementation Order
+## Implementation Status
 
-1. [x] Create `config/filters.json` - DONE
-2. [x] Create `config/settings.json` - DONE (already exists)
-3. [x] Create `config/profiles.json` - DONE (already exists)
-4. [ ] Create `scripts/config.py` - ConfigProvider class
-5. [ ] Create `scripts/domain/__init__.py`
-6. [ ] Create `scripts/domain/audio_engineer.py` - AudioEngineer class
-7. [ ] Refactor `scripts/audio_preprocess.py` - Use AudioEngineer
-8. [ ] Refactor `scripts/utils/ffmpeg.py` - Use ConfigProvider
-9. [ ] Refactor `cli.py` - Use ConfigProvider
-10. [ ] Run E2E test
+| # | Task | Status |
+|---|------|--------|
+| 1 | Create `config/filters.json` | ✅ DONE |
+| 2 | Create `config/settings.json` | ✅ DONE |
+| 3 | Create `config/profiles.json` | ✅ DONE |
+| 4 | Create `scripts/config.py` | ✅ DONE |
+| 5 | Create `scripts/domain/__init__.py` | ✅ DONE |
+| 6 | Create `scripts/domain/audio_engineer.py` | ✅ DONE |
+| 7 | Create `scripts/core/pipeline.py` | ✅ DONE |
+| 8 | Create `scripts/core/exceptions.py` | ✅ DONE |
+| 9 | Create stage modules | ✅ DONE |
+| 10 | Refactor `scripts/audio_preprocess.py` | ✅ DONE |
+| 11 | Refactor `scripts/utils/ffmpeg.py` | ✅ DONE |
+| 12 | Run E2E test | ✅ DONE |
 
 ---
 

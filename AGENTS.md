@@ -98,55 +98,60 @@ These verify:
 - Frame extraction
 - Idempotency
 
-## Common Tasks
+## Pipeline Architecture
 
-### Run full pipeline programmatically
+### Pipeline Orchestrator (`scripts/core/pipeline.py`)
+
+The Pipeline class coordinates all stages and provides progress callbacks:
+
 ```python
-from scripts.utils import ffmpeg, session
-from pathlib import Path
+from scripts.core.pipeline import Pipeline
 
-# Setup
-session.ensure_session_dirs(".", "session_id")
+pipeline = Pipeline(workspace="/path/to/workspace")
 
-# Ingest
-shutil.copy("footage/fulldeco.mp4", "recordings/session_id/camera.mp4")
+# Run full pipeline
+results = pipeline.run_full(session_id="session_123")
 
-# Proxy
-ffmpeg.create_proxy("recordings/session_id/camera.mp4", 
-                    "proxies/session_id/camera_proxy.mp4")
+# Run single stage
+result = pipeline.run_stage(session_id="session_123", stage_name="Analyze")
 
-# Audio
-ffmpeg.extract_audio("recordings/session_id/camera.mp4",
-                     "audio/session_id/camera.wav")
+# Get available stages
+stages = pipeline.get_available_stages(session_id="session_123")
 ```
 
-### Check FFmpeg path
-```bash
-python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
-```
+### Stages (`scripts/core/stages/`)
 
-### Verify video properties
+Each stage is a separate module with `run(session_id, workspace) -> dict`:
+
+| Stage | Module | Description |
+|-------|--------|-------------|
+| Ingest | `ingest` | Copy files to session directory |
+| Proxies | `proxies` | Create proxies and extract audio |
+| Transcribe | `transcribe` | Whisper speech-to-text |
+| Analyze | `analyze` | Silence/filler/energy detection |
+| Cutmap | `cutmap` | Generate edit decisions |
+| Assemble | `assemble` | Trim and concatenate |
+| Export | `export` | Render final videos |
+
+### Profile-Specific Stages
+
+- **Longform**: Ingest → Proxies → Transcribe → Analyze → Cutmap → Assemble → Export
+- **Shorts**: Ingest → Proxies → Prepare → Assemble → Export
+
+### Exceptions (`scripts/core/exceptions.py`)
+
 ```python
-from scripts.utils import ffmpeg
+from scripts.core.exceptions import StageError, SessionNotFoundError, StageNotFoundError
 
-duration = ffmpeg.get_duration("video.mp4")
-width, height = ffmpeg.get_resolution("video.mp4")
-frame_count = ffmpeg.get_frame_count("video.mp4")
+try:
+    pipeline.run_full(session_id="session_123")
+except StageError as e:
+    print(f"Stage {e.stage} failed: {e}")
+except SessionNotFoundError:
+    print("Session not found")
 ```
 
-## Troubleshooting
-
-### "Import pytest could not be resolved"
-- Install pytest: `pip install pytest`
-
-### "No such file or directory" for proxies
-- Ensure session directories exist: `session.ensure_session_dirs(workspace, session_id)`
-
-### FFmpeg errors
-- FFmpeg is bundled via `imageio-ffmpeg`
-- Check: `python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"`
-
-## Architecture
+## Config Architecture
 
 ### ConfigProvider (`scripts/config.py`)
 
@@ -206,6 +211,44 @@ report = ae.preprocess(input_wav, output_wav, target="longform")
 4. `equalizer` - Corrective EQ (only confirmed problems)
 5. `loudnorm` - Always last
 
+## Common Tasks
+
+### Run full pipeline programmatically
+```python
+from scripts.core.pipeline import Pipeline
+
+pipeline = Pipeline(".")
+results = pipeline.run_full(session_id="session_123")
+```
+
+### Run specific stage
+```python
+from scripts.core.stages import analyze
+
+result = analyze.run("session_123", ".")
+```
+
+### Run audio preprocessing
+```python
+from scripts import audio_preprocess
+
+audio_preprocess.run(session_id="session_123", mode="default", workspace=".")
+```
+
+### Check FFmpeg path
+```bash
+python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"
+```
+
+### Verify video properties
+```python
+from scripts.utils import ffmpeg
+
+duration = ffmpeg.get_duration("video.mp4")
+width, height = ffmpeg.get_resolution("video.mp4")
+frame_count = ffmpeg.get_frame_count("video.mp4")
+```
+
 ## File Paths
 
 - Project root: `/home/carlos/side-projects/mvp-editing-pipeline`
@@ -213,9 +256,57 @@ report = ae.preprocess(input_wav, output_wav, target="longform")
 - Config: `config/`
 - Sessions: `recordings/<session_id>/`
 
+## Directory Structure
+
+```
+scripts/
+├── core/                  # Pipeline orchestration
+│   ├── pipeline.py        # Pipeline orchestrator
+│   ├── exceptions.py      # Custom exceptions
+│   └── stages/           # Pipeline stages
+│       ├── ingest.py
+│       ├── proxies.py
+│       ├── transcribe.py
+│       ├── analyze.py
+│       ├── cutmap.py
+│       ├── assemble.py
+│       └── export.py
+├── domain/               # Domain logic
+│   ├── audio_engineer.py # Audio preprocessing
+│   └── __init__.py
+├── utils/                # Utilities
+│   ├── ffmpeg.py
+│   ├── session.py
+│   ├── filepicker.py
+│   └── validation.py
+├── config.py             # ConfigProvider
+├── audio_preprocess.py   # Audio preprocessing entry
+└── models.py             # Data models
+
+config/
+├── settings.json          # General pipeline settings
+├── profiles.json          # Per-content-type behavior
+├── filters.json           # Audio filter parameters
+├── brand.json             # Branding config
+└── filler_words_es.txt   # Filler word list
+```
+
+## Troubleshooting
+
+### "Import pytest could not be resolved"
+- Install pytest: `pip install pytest`
+
+### "No such file or directory" for proxies
+- Ensure session directories exist: `session.ensure_session_dirs(workspace, session_id)`
+
+### FFmpeg errors
+- FFmpeg is bundled via `imageio-ffmpeg`
+- Check: `python -c "import imageio_ffmpeg; print(imageio_ffmpeg.get_ffmpeg_exe())"`
+
 ## Notes
 
 - Tests use `tmp_path` fixture - files are cleaned up after each test
 - E2E tests run against temp directories, not the actual workspace
-- To see actual output, run the pipeline programmatically (see above)
-- Audio preprocessing now uses adaptive filtering based on diagnosis
+- To see actual output, run the pipeline programmatically
+- Audio preprocessing uses adaptive filtering based on diagnosis
+- Each stage returns a dict with `session_status` key for status updates
