@@ -1,0 +1,64 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Generated media (pipeline output - per-session)
+recordings/*/
+proxies/*/
+audio/*/
+transcripts/*/
+analysis/*/
+cutmaps/*/
+exports/*/
+thumbnails/*/
+briefs/*/
+metadata/*/
+
+# Keep directory structure with .gitkeep
+!recordings/.gitkeep
+!proxies/.gitkeep
+!audio/.gitkeep
+!transcripts/.gitkeep
+!analysis/.gitkeep
+!cutmaps/.gitkeep
+!exports/.gitkeep
+!thumbnails/.gitkeep
+!briefs/.gitkeep
+!metadata/.gitkeep
+
+# Test footage (large binary files)
+footage/*.mp4
+footage/*.mov
+!footage/.gitkeep
+
+# Config with secrets
+config/settings.json
+!config/settings.example.json
+
+# Workspace demo artifacts
+workspace_demo/*/
+!workspace_demo/.gitkeep

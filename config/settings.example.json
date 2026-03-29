@@ -1,0 +1,19 @@
+{
+  "anthropic_api_key": "YOUR_ANTHROPIC_API_KEY_HERE",
+  "replicate_api_key": "YOUR_REPLICATE_API_KEY_HERE",
+  "recordings_mount": "/path/to/your/videos",
+  "workspace_root": "/path/to/workspace",
+  "ffmpeg_path": "imageio",
+  "ffmpeg_threads": 0,
+  "whisper_model": "whisper",
+  "whisper_compute_type": "int8",
+  "whisper_device": "cpu",
+  "whisper_language": "es",
+  "whisper_beam_size": 5,
+  "whisper_word_timestamps": true,
+  "whisper_vad_filter": true,
+  "whisper_vad_min_silence_duration_ms": 500,
+  "default_profile": "longform",
+  "proxy_resolution": "1280x720",
+  "logs_level": "INFO"
+}

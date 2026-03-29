@@ -1,0 +1,17 @@
+{
+  "channel_name": "TuCanal",
+  "tagline": "Contenido que importa",
+  "primary_color": "#FFDD00",
+  "bg_color": "#0A0A0A",
+  "accent_color": "#FF4444",
+  "font_primary": "Montserrat",
+  "font_weight_title": 800,
+  "font_weight_body": 600,
+  "lower_third_name": "Tu Nombre",
+  "lower_third_title": "Tu Titulo",
+  "social_handles": {
+    "youtube": "@tucanal",
+    "instagram": "@tucanal",
+    "tiktok": "@tucanal"
+  }
+}

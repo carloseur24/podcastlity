@@ -1,0 +1,67 @@
+{
+  "highpass": {
+    "default_freq": 80,
+    "deep_voice_freq": 60,
+    "poles": 2
+  },
+  "afftdn": {
+    "nr_mild": 8,
+    "nr_moderate": 15,
+    "nr_heavy": 22,
+    "nr_max_voice": 25,
+    "noise_floor_offset": 5
+  },
+  "agate": {
+    "above_floor_db": 8,
+    "ratio_mild": 6,
+    "ratio_heavy": 12,
+    "attack_ms": 10,
+    "release_ms": 60
+  },
+  "eq": {
+    "proximity": {
+      "freq": 120,
+      "width": 1.0,
+      "gain": -3
+    },
+    "boxiness": {
+      "freq": 400,
+      "width": 1.5,
+      "gain": -2
+    },
+    "sibilance": {
+      "freq": 7000,
+      "width": 1.0,
+      "gain": -3
+    },
+    "presence": {
+      "freq": 10000,
+      "width": 0.8,
+      "gain": 2
+    }
+  },
+  "loudnorm": {
+    "shorts": {
+      "I": -14,
+      "TP": -1,
+      "LRA": 7
+    },
+    "longform": {
+      "I": -16,
+      "TP": -1.5,
+      "LRA": 11
+    }
+  },
+  "stereo": {
+    "extrastereo_m": 1.5
+  },
+  "diagnostic": {
+    "noise_clean_below": -65,
+    "noise_mild_below": -50,
+    "noise_moderate_below": -40,
+    "nr_max_voice": 25,
+    "rms_delta_max": 12,
+    "snr_minimum": 18,
+    "noise_floor_warn": -48
+  }
+}
