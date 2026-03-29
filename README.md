@@ -87,7 +87,7 @@ Sample video located at `footage/fulldeco.mp4` (~42 seconds, 720x1280 portrait).
 
 ```
 .
-├── cli.py                 # Main entry point
+├── cli.py                 # Main entry point (TUI)
 ├── pytest.ini             # Test configuration
 ├── requirements.txt       # Python dependencies
 ├── config/                # Configuration files
@@ -96,27 +96,58 @@ Sample video located at `footage/fulldeco.mp4` (~42 seconds, 720x1280 portrait).
 │   ├── brand.json
 │   └── filler_words_es.txt
 ├── scripts/
-│   ├── models.py         # Pydantic data models
+│   ├── core/              # Backend (reusable by future API)
+│   │   ├── __init__.py
+│   │   ├── exceptions.py  # PipelineError, StageError
+│   │   ├── pipeline.py    # Pipeline orchestrator
+│   │   └── stages/        # Pipeline stage modules
+│   │       ├── ingest.py
+│   │       ├── proxies.py
+│   │       ├── transcribe.py
+│   │       ├── analyze.py
+│   │       ├── cutmap.py
+│   │       ├── assemble.py
+│   │       └── export.py
+│   ├── models.py          # Pydantic data models
 │   ├── ui/
-│   │   └── menus.py       # Rich TUI components
+│   │   └── menus.py        # Rich TUI components
 │   └── utils/
-│       ├── ffmpeg.py      # FFmpeg wrappers
-│       ├── session.py    # Session management
+│       ├── ffmpeg.py       # FFmpeg wrappers
+│       ├── session.py     # Session management
 │       └── filepicker.py  # File selection
 ├── templates/
-│   └── subtitles/         # Subtitle styles
+│   └── subtitles/          # Subtitle styles
 ├── docs/
-│   ├── base-plan.md       # Technical specification
+│   ├── base-plan.md        # Technical specification
 │   └── brief-skill.md      # Manual brief generation
 ├── tests/
-│   ├── conftest.py        # Pytest fixtures
+│   ├── conftest.py         # Pytest fixtures
 │   ├── test_ffmpeg.py
 │   ├── test_session.py
 │   ├── test_filepicker.py
 │   ├── test_models.py
 │   └── test_e2e.py
 └── footage/
-    └── fulldeco.mp4       # Test video
+    └── fulldeco.mp4        # Test video
+```
+
+## Backend API Usage
+
+The pipeline can be used programmatically:
+
+```python
+from scripts.core import Pipeline
+
+pipeline = Pipeline("/path/to/workspace")
+
+# Run full pipeline
+pipeline.run_full("session_id")
+
+# Run single stage
+pipeline.run_stage("session_id", "transcribe")
+
+# With progress callback
+pipeline.run_full("session_id", on_progress=lambda stage, status: print(f"{stage}: {status}"))
 ```
 
 ## License
