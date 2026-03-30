@@ -30,6 +30,8 @@ def print_main_menu() -> None:
     table.add_row("2", "Continuar Sesion")
     table.add_row("3", "Listar Sesiones")
     table.add_row("4", "Configuracion")
+    table.add_row("5", "Audio (Filtros)")
+    table.add_row("6", "Preview Audio")
     table.add_row("0", "Salir")
     
     panel = Panel(
@@ -44,7 +46,7 @@ def print_main_menu() -> None:
 def get_main_menu_choice() -> str:
     return Prompt.ask(
         "[bold cyan]Selecciona una opcion[/bold cyan]",
-        choices=["1", "2", "3", "4", "0"],
+        choices=["1", "2", "3", "4", "5", "6", "0"],
         default="",
     )
 
