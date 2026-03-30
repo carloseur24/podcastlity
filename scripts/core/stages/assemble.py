@@ -65,7 +65,7 @@ def run(session_id: str, workspace: str) -> dict:
         clean_audio = workspace_path / "audio" / session_id / "master_clean.wav"
         if clean_audio.exists():
             temp_with_audio = proxies_dir / f"assembled_{profile_name}_temp.mp4"
-            ffmpeg.replace_audio(str(output_file), str(clean_audio), str(temp_with_audio))
+            ffmpeg.replace_audio(str(output_file), str(clean_audio), str(temp_with_audio), stereo_widen=True)
             Path(temp_with_audio).replace(output_file)
         
         if profile_name == "shorts":

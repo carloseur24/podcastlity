@@ -300,21 +300,46 @@ def export_full_quality(
     run_ffmpeg(args)
 
 
-def replace_audio(video_path: str, audio_path: str, output_path: str) -> None:
+def replace_audio(video_path: str, audio_path: str, output_path: str, stereo_widen: bool = False) -> None:
     """
     Replace audio track in video with new audio file.
+    
+    Args:
+        video_path: Input video file
+        audio_path: Input audio file (mono)
+        output_path: Output video file
+        stereo_widen: If True, apply extrastereo for wider sound
     """
-    args = [
-        "-y",
-        "-i", video_path,
-        "-i", audio_path,
-        "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "256k",
-        "-map", "0:v:0",
-        "-map", "1:a:0",
-        "-shortest",
-        output_path
-    ]
+    if stereo_widen:
+        from scripts.config import get_config
+        config = get_config()
+        stereo_cfg = config.get_stereo_settings()
+        m_val = stereo_cfg.get("extrastereo_m", 1.5)
+        
+        args = [
+            "-y",
+            "-i", video_path,
+            "-i", audio_path,
+            "-c:v", "copy",
+            "-af", f"extrastereo=m={m_val}",
+            "-c:a", "aac", "-b:a", "256k",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-shortest",
+            output_path
+        ]
+    else:
+        args = [
+            "-y",
+            "-i", video_path,
+            "-i", audio_path,
+            "-c:v", "copy",
+            "-c:a", "aac", "-b:a", "256k",
+            "-map", "0:v:0",
+            "-map", "1:a:0",
+            "-shortest",
+            output_path
+        ]
     run_ffmpeg(args)
 
 

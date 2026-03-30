@@ -4,8 +4,11 @@ Loads settings from config/ JSON files and provides typed access.
 """
 
 import json
+import warnings as _warnings
 from pathlib import Path
 from typing import Any
+
+from scripts.config_models import validate_filters_config
 
 
 class ConfigProvider:
@@ -17,6 +20,15 @@ class ConfigProvider:
         self._filters = self._load_json("filters.json")
         self._profiles = self._load_json("profiles.json")
         self._brand = self._load_json("brand.json")
+        
+        self._validate_filters()
+    
+    def _validate_filters(self):
+        errors, warnings = validate_filters_config(self._filters)
+        for err in errors:
+            raise ValueError(f"[CONFIG ERROR] {err}")
+        for warn in warnings:
+            _warnings.warn(f"[CONFIG WARNING] {warn}", UserWarning)
     
     def _load_json(self, filename: str) -> dict:
         path = self._config_dir / filename

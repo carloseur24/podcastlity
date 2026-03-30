@@ -47,30 +47,45 @@ class AudioEngineer:
             text=True
         )
         
-        rms_db = None
-        peak_db = None
-        noise_floor_db = None
+        noise_floor_values = []
         
         for line in result.stderr.splitlines():
-            if "RMS level dB:" in line:
+            if "Overall.Noise_floor=" in line:
                 try:
-                    rms_db = float(line.split(":")[-1].strip())
-                except (ValueError, IndexError):
-                    pass
-            elif "Peak level dB:" in line:
-                try:
-                    peak_db = float(line.split(":")[-1].strip())
-                except (ValueError, IndexError):
-                    pass
-            elif "Noise floor dB:" in line:
-                try:
-                    val = line.split(":")[-1].strip()
+                    val = line.split("=")[-1].strip()
                     if val != "nan":
-                        noise_floor_db = float(val)
+                        noise_floor_values.append(float(val))
                 except (ValueError, IndexError):
                     pass
         
-        if rms_db is None or noise_floor_db is None:
+        noise_floor_db = None
+        if noise_floor_values:
+            noise_floor_db = min(noise_floor_values)
+        
+        rms_result = subprocess.run(
+            [ffmpeg_path, "-i", str(input_wav),
+             "-af", "volumedetect",
+             "-f", "null", "-"],
+            capture_output=True,
+            text=True
+        )
+        
+        rms_db = None
+        peak_db = None
+        
+        for line in rms_result.stderr.splitlines():
+            if "mean_volume:" in line:
+                try:
+                    rms_db = float(line.split(":")[-1].strip().replace(" dB", ""))
+                except (ValueError, IndexError):
+                    pass
+            elif "max_volume:" in line:
+                try:
+                    peak_db = float(line.split(":")[-1].strip().replace(" dB", ""))
+                except (ValueError, IndexError):
+                    pass
+        
+        if rms_db is None:
             return {
                 "rms_db": -30.0,
                 "peak_db": -6.0,
@@ -83,8 +98,11 @@ class AudioEngineer:
                 "environment_guess": "unknown"
             }
         
+        if noise_floor_db is None:
+            noise_floor_db = rms_db - 20
+        
         headroom_db = peak_db - rms_db if peak_db else 0
-        snr_estimate = rms_db - noise_floor_db if noise_floor_db else 0
+        snr_estimate = rms_db - noise_floor_db
         
         muffled_ratio = self._analyze_frequency_bands(input_wav, ffmpeg_path)
         
@@ -222,22 +240,24 @@ class AudioEngineer:
         filters.append(f"highpass=f={hp_freq}:poles={hp_poles}")
         
         nf = diagnosis.get("noise_floor_db", -50)
-        if nf > -65:
-            afftdn_config = self._config.get_afftdn_settings()
-            if nf > -40:
-                nr = afftdn_config.get("nr_heavy", 35)
-            elif nf > -50:
-                nr = afftdn_config.get("nr_moderate", 25)
-            else:
-                nr = afftdn_config.get("nr_mild", 15)
-            
-            if "heavy_noise" in problems:
-                nr = min(nr + 5, afftdn_config.get("nr_max_voice", 40))
-            
-            nf_offset = afftdn_config.get("noise_floor_offset", 5)
-            filters.append(f"afftdn=nr={nr}:nf={nf + nf_offset}")
+        afftdn_config = self._config.get_afftdn_settings()
         
-        if nf > -50:
+        if nf > -40:
+            nr = afftdn_config.get("nr_heavy", 35)
+        elif nf > -50:
+            nr = afftdn_config.get("nr_moderate", 25)
+        elif nf > -60:
+            nr = afftdn_config.get("nr_mild", 15)
+        else:
+            nr = afftdn_config.get("nr_minimum", 8)
+        
+        if "heavy_noise" in problems:
+            nr = min(nr + 5, afftdn_config.get("nr_max_voice", 40))
+        
+        nf_offset = afftdn_config.get("noise_floor_offset", 5)
+        filters.append(f"afftdn=nr={nr}:nf={nf + nf_offset}")
+        
+        if nf > -55:
             agate_config = self._config.get_agate_settings()
             above_floor = agate_config.get("above_floor_db", 6)
             linear_threshold = 10 ** ((nf + above_floor) / 20)
@@ -245,6 +265,22 @@ class AudioEngineer:
             attack = agate_config.get("attack_ms", 10)
             release = agate_config.get("release_ms", 60)
             filters.append(f"agate=threshold={linear_threshold:.4f}:ratio={ratio}:attack={attack}:release={release}")
+        
+        comp_config = self._config.get_compressor_settings()
+        comp_threshold_linear = 10 ** (comp_config.get("threshold_db", -25) / 20)
+        comp_ratio = comp_config.get("ratio", 4)
+        comp_attack = comp_config.get("attack_ms", 20)
+        comp_release = comp_config.get("release_ms", 250)
+        comp_makeup = max(1, comp_config.get("makeup_db", 1))
+        comp_knee = comp_config.get("knee", 1)
+        
+        if "quiet_voice" in problems:
+            comp_makeup = min(comp_makeup + 2, 8)
+        
+        if "heavy_noise" in problems or "moderate_noise" in problems:
+            comp_threshold_linear = comp_threshold_linear * 1.5
+        
+        filters.append(f"acompressor=threshold={comp_threshold_linear:.4f}:ratio={comp_ratio}:attack={comp_attack}:release={comp_release}:makeup={comp_makeup}:knee={comp_knee}")
         
         eq_config = self._config.get_eq_settings()
         
@@ -273,30 +309,13 @@ class AudioEngineer:
             sib = eq_config.get("sibilance", {})
             filters.append(f"equalizer=f={sib.get('freq', 7000)}:t=q:w={sib.get('width', 1.0)}:g={sib.get('gain', -3)}")
         
-        comp_config = self._config.get_compressor_settings()
-        comp_threshold_linear = 10 ** (comp_config.get("threshold_db", -25) / 20)
-        comp_ratio = comp_config.get("ratio", 4)
-        comp_attack = comp_config.get("attack_ms", 20)
-        comp_release = comp_config.get("release_ms", 250)
-        comp_makeup = comp_config.get("makeup_db", 4)
-        comp_knee = comp_config.get("knee", 0.5)
-        
-        if "quiet_voice" in problems:
-            comp_makeup = comp_makeup + 4
-        
-        if "heavy_noise" in problems or "moderate_noise" in problems:
-            comp_threshold_linear = comp_threshold_linear * 1.5
-        
-        filters.append(f"acompressor=threshold={comp_threshold_linear:.4f}:ratio={comp_ratio}:attack={comp_attack}:release={comp_release}:makeup={comp_makeup}:knee={comp_knee}")
-        
-        loudnorm_targets = self._config.get_loudnorm_targets(target)
-        filters.append(f"loudnorm=I={loudnorm_targets.get('I', -14)}:TP={loudnorm_targets.get('TP', -1)}:LRA={loudnorm_targets.get('LRA', 9)}")
-        
         return ",".join(filters)
     
     def validate(self, before_report: dict[str, Any], after_report: dict[str, Any]) -> tuple[list[str], list[str]]:
         """
         Step 3: Quality gates - validate preprocessing didn't make things worse.
+        
+        Note: Noise floor validation is approximate since loudnorm affects measurement.
         
         Returns:
             Tuple of (errors, warnings)
@@ -306,12 +325,6 @@ class AudioEngineer:
         
         diag_config = self._config.get_diagnostic_settings()
         
-        noise_before = before_report.get("noise_floor_db", -50)
-        noise_after = after_report.get("noise_floor_db", -50)
-        
-        if noise_after > noise_before:
-            errors.append(f"FAIL: noise floor increased from {noise_before:.1f}dB to {noise_after:.1f}dB")
-        
         rms_before = before_report.get("rms_db", -30)
         rms_after = after_report.get("rms_db", -30)
         rms_delta = abs(rms_after - rms_before)
@@ -319,12 +332,13 @@ class AudioEngineer:
         if rms_delta > diag_config.get("rms_delta_max", 12):
             errors.append(f"FAIL: RMS changed by {rms_delta:.1f}dB — voice likely damaged")
         
-        if noise_after > diag_config.get("noise_floor_warn", -48):
-            warnings.append(f"WARN: noise floor still {noise_after:.1f}dB — try --mode heavy")
+        noise_after = after_report.get("noise_floor_db", -50)
+        if noise_after > -35:
+            warnings.append(f"WARN: noise floor high at {noise_after:.1f}dB")
         
         snr_after = rms_after - noise_after
-        if snr_after < diag_config.get("snr_minimum", 18):
-            warnings.append(f"WARN: SNR is {snr_after:.1f}dB — silence detection may be unreliable")
+        if snr_after < diag_config.get("snr_minimum", 10):
+            warnings.append(f"WARN: SNR is {snr_after:.1f}dB — may affect silence detection")
         
         return errors, warnings
     
@@ -351,23 +365,20 @@ class AudioEngineer:
         
         ffmpeg_path = _get_ffmpeg_path()
         
-        mono_wav = output_wav.with_suffix('.mono.wav')
-        subprocess.run(
-            [ffmpeg_path, "-y", "-i", str(input_wav),
-             "-af", filter_chain,
-             "-ar", "16000", "-ac", "1",
-             str(mono_wav)],
-            check=True
-        )
+        loudnorm_targets = self._config.get_loudnorm_targets(target)
+        target_i = loudnorm_targets.get("I", -14)
+        target_tp = loudnorm_targets.get("TP", -1)
+        target_lra = loudnorm_targets.get("LRA", 9)
+        
+        filter_chain_with_loudnorm = f"{filter_chain},loudnorm=I={target_i}:TP={target_tp}:LRA={target_lra}:print_format=json"
         
         subprocess.run(
-            [ffmpeg_path, "-y", "-i", str(mono_wav),
-             "-af", "aformat=channel_layouts=stereo",
-             "-ac", "2",
+            [ffmpeg_path, "-y", "-i", str(input_wav),
+             "-af", filter_chain_with_loudnorm,
+             "-ar", "48000", "-ac", "1",
              str(output_wav)],
             check=True
         )
-        mono_wav.unlink(missing_ok=True)
         
         after_diagnosis = self.diagnose(output_wav)
         

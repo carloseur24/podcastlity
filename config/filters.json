@@ -11,15 +11,16 @@
     "nr_moderate": 25,
     "nr_heavy": 35,
     "nr_max_voice": 40,
-    "noise_floor_offset": 5
+    "nr_minimum": 3,
+    "noise_floor_offset": 15
   },
   "compressor": {
     "threshold_db": -25,
     "ratio": 4,
     "attack_ms": 20,
     "release_ms": 250,
-    "makeup_db": 4,
-    "knee": 0.5
+    "makeup_db": 1,
+    "knee": 1
   },
   "agate": {
     "above_floor_db": 6,
@@ -72,9 +73,9 @@
       "LRA": 6
     },
     "longform": {
-      "I": -14,
-      "TP": -1,
-      "LRA": 9
+      "I": -16,
+      "TP": -1.5,
+      "LRA": 14
     }
   },
   "stereo": {

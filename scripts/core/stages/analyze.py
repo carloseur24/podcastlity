@@ -88,8 +88,33 @@ def _detect_silence(audio_path: Path) -> dict:
     ff = ffmpeg
     ffmpeg_path = ff.get_ffmpeg_path()
     
+    noise_result = subprocess.run(
+        [ffmpeg_path, "-i", str(audio_path),
+         "-af", "astats=metadata=1:reset=1,ametadata=print:key=lavfi.astats.Overall.RMS_level",
+         "-f", "null", "-"],
+        capture_output=True,
+        text=True,
+    )
+    
+    rms_values = []
+    for line in noise_result.stderr.splitlines():
+        if "Overall.RMS_level=" in line:
+            try:
+                val = line.split("=")[-1].strip()
+                if val != "nan":
+                    rms_values.append(float(val))
+            except (ValueError, IndexError):
+                pass
+    
+    if rms_values:
+        noise_floor = min(rms_values)
+    else:
+        noise_floor = -60.0
+    
+    silence_threshold = noise_floor + 8
+    
     result = subprocess.run(
-        [ffmpeg_path, "-i", str(audio_path), "-af", "silencedetect=noise=-50dB:d=0.2", "-f", "null", "-"],
+        [ffmpeg_path, "-i", str(audio_path), "-af", f"silencedetect=noise={silence_threshold:.1f}dB:d=0.2", "-f", "null", "-"],
         capture_output=True,
         text=True,
     )
