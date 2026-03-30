@@ -291,6 +291,125 @@ config/
 └── filler_words_es.txt   # Filler word list
 ```
 
+## Data Models (`scripts/models.py`)
+
+Pydantic models for all pipeline data structures:
+
+```python
+from scripts.models import (
+    Session, Transcript, TranscriptSegment, Word,
+    SilenceMap, SilenceInterval, FillerMap, FillerWord,
+    EnergyMap, EnergyWindow, ChapterMap, Chapter,
+    CutMap, KeepInterval, Brief, Metadata
+)
+```
+
+### Session Model
+
+```python
+session = Session(
+    session_id="20250628_test",
+    topic="Python tips",
+    profile="longform",
+    status="ingested"
+)
+session.model_dump()  # Serialize to dict
+```
+
+### Stage Return Values
+
+Each stage returns a dict with these keys:
+
+| Key | Type | Description |
+|-----|------|-------------|
+| `session_status` | str | Updated session status |
+| `success` | bool | Whether stage completed |
+| `stage` | str | Stage name |
+| `session_id` | str | The session ID |
+| `data` | dict | Stage-specific output data |
+
+Example:
+```python
+result = analyze.run("session_id", ".")
+# Returns: {
+#     "session_status": "analyzed",
+#     "success": True,
+#     "stage": "Analyze",
+#     "session_id": "20250628_test",
+#     "data": {"silence_map": {...}, "filler_map": {...}}
+# }
+```
+
+## Utilities
+
+### SessionManager (`scripts/utils/session.py`)
+
+```python
+from scripts.utils.session import SessionManager
+
+sm = SessionManager("/workspace")
+
+# Check if session exists
+sm.session_exists("session_id")
+
+# Get session path
+session_path = sm.get_session_path("session_id")
+
+# Load session data
+session = sm.load_session("session_id")
+
+# Update status
+sm.update_status("session_id", "analyzed")
+
+# List all sessions
+sessions = sm.list_sessions()
+```
+
+### FFmpeg Utils (`scripts/utils/ffmpeg.py`)
+
+```python
+from scripts.utils import ffmpeg
+
+# Video operations
+duration = ffmpeg.get_duration("video.mp4")
+width, height = ffmpeg.get_resolution("video.mp4")
+frame_count = ffmpeg.get_frame_count("video.mp4")
+
+# Audio extraction
+ffmpeg.extract_audio("video.mp4", "output.wav", mono=True, sample_rate=16000)
+
+# Proxy creation
+ffmpeg.create_proxy("input.mp4", "proxy.mp4", width=1280, height=720)
+
+# Video trimming
+ffmpeg.trim_video("input.mp4", "output.mp4", start=0, end=30)
+
+# Loudness normalization
+ffmpeg.apply_loudnorm("input.wav", "output.wav", profile="shorts")
+```
+
+### Validation (`scripts/utils/validation.py`)
+
+```python
+from scripts.utils.validation import (
+    SessionIdValidator,
+    DurationValidator,
+    TopicValidator,
+    FilePathValidator
+)
+
+# Validate inputs
+result = SessionIdValidator().validate("20250628_test")
+result = DurationValidator().validate("5.5")
+result = TopicValidator().validate("My video topic")
+result = FilePathValidator().validate("/path/to/video.mp4")
+
+if result.is_valid:
+    print(result.value)
+else:
+    print(result.errors)
+```
+
 ## Troubleshooting
 
 ### "Import pytest could not be resolved"

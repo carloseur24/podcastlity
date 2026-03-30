@@ -17,6 +17,7 @@ from scripts.ui import menus
 from scripts.utils.session import SessionManager, load_settings, ensure_session_dirs
 from scripts.utils import filepicker
 from scripts.core import Pipeline
+from scripts.config import ConfigProvider, reset_config
 
 
 WORKSPACE_ROOT = str(PROJECT_ROOT)
@@ -418,6 +419,74 @@ def preview_session(session_id: str) -> None:
         menus.print_error(f"No se pudo abrir: {e}")
 
 
+def preview_audio(session_id: str) -> None:
+    import subprocess
+    import json
+    
+    session = session_manager.load_session(session_id)
+    
+    clean_audio = Path(WORKSPACE_ROOT) / "audio" / session_id / "master_clean.wav"
+    raw_audio = Path(WORKSPACE_ROOT) / "audio" / session_id / "master.wav"
+    report_file = Path(WORKSPACE_ROOT) / "analysis" / session_id / "preprocess_report.json"
+    
+    if not clean_audio.exists():
+        menus.print_warning("Audio procesado no encontrado")
+        menus.print_info("Ejecuta 'Proxies' o 'Prepare' primero")
+        return
+    
+    menus.console.print(f"\n[bold cyan]=== Preview Audio ===[/bold cyan]\n")
+    menus.console.print(f"Session: [yellow]{session_id}[/yellow]")
+    menus.console.print(f"Perfil: {session.profile or 'longform'}")
+    menus.console.print(f"Audio: [green]{clean_audio.name}[/green]")
+    
+    if report_file.exists():
+        report = json.loads(report_file.read_text())
+        before = report.get("before", {})
+        after = report.get("after", {})
+        
+        menus.console.print("\n[bold]Procesamiento:[/bold]")
+        menus.console.print(f"  RMS:      {before.get('rms_db', 0):.1f}dB → [green]{after.get('rms_db', 0):.1f}dB[/green]")
+        menus.console.print(f"  Noise:   {before.get('noise_floor_db', 0):.1f}dB → [green]{after.get('noise_floor_db', 0):.1f}dB[/green]")
+        menus.console.print(f"  SNR:     {before.get('snr_estimate_db', 0):.1f}dB → [green]{after.get('snr_estimate_db', 0):.1f}dB[/green]")
+        
+        errors = report.get("errors", [])
+        warnings = report.get("warnings", [])
+        
+        if errors:
+            menus.console.print("\n[bold red]Errores:[/bold red]")
+            for e in errors:
+                menus.console.print(f"  - {e}")
+        
+        if warnings:
+            menus.console.print("\n[bold yellow]Advertencias:[/bold yellow]")
+            for w in warnings:
+                menus.console.print(f"  - {w}")
+    
+    menus.console.print()
+    play = menus.Prompt.ask(
+        "[bold]Reproducir audio?[/bold] (s/n)",
+        choices=["s", "S", "n", "N"],
+        default="s"
+    )
+    
+    if play.lower() == "s":
+        menus.print_info("Reproduciendo... (cierra el reproductor cuando termines)")
+        subprocess.run(["xdg-open", str(clean_audio)], check=False)
+        
+        menus.console.print()
+        menus.console.print("[bold]Ajustes de audio:[/bold]")
+        menus.console.print("  5. [cyan]Menu Audio[/cyan] - modificar filtros")
+        
+        again = menus.Prompt.ask(
+            "\n[bold]Otra vez?[/bold] (s/n)",
+            choices=["s", "S", "n", "N"],
+            default="n"
+        )
+        
+        if again.lower() == "s":
+            preview_audio(session_id)
+
+
 def list_sessions() -> None:
     sessions = session_manager.list_sessions()
     menus.print_session_list(sessions)
@@ -448,6 +517,125 @@ def run_settings() -> None:
     menus.print_success("Configuracion guardada")
 
 
+def run_audio_settings() -> None:
+    import json
+    reset_config()
+    config = ConfigProvider(WORKSPACE_ROOT)
+    
+    while True:
+        menus.console.print("\n[bold cyan]=== Configuracion de Audio ===[/bold cyan]\n")
+        
+        hp = config.get_highpass_settings()
+        afftdn = config.get_afftdn_settings()
+        comp = config.get_compressor_settings()
+        gate = config.get_agate_settings()
+        eq = config.get_eq_settings()
+        loud = config.get_loudnorm_settings()
+        
+        menus.console.print("[bold]1. Highpass:[/bold] freq={}Hz, muffled={}Hz".format(
+            hp.get("default_freq"), hp.get("muffled_voice_freq")))
+        menus.console.print("[bold]2. Denoising:[/bold] mild={}, moderate={}, heavy={}, max={}".format(
+            afftdn.get("nr_mild"), afftdn.get("nr_moderate"), 
+            afftdn.get("nr_heavy"), afftdn.get("nr_max_voice")))
+        menus.console.print("[bold]3. Compressor:[/bold] threshold={}dB, ratio={}:1, makeup={}dB".format(
+            comp.get("threshold_db"), comp.get("ratio"), comp.get("makeup_db")))
+        menus.console.print("[bold]4. Noise Gate:[/bold] above_floor={}dB, ratio={}".format(
+            gate.get("above_floor_db"), gate.get("ratio_heavy")))
+        menus.console.print("[bold]5. EQ Presence:[/bold] freq={}Hz, gain={}dB".format(
+            eq.get("presence", {}).get("freq"), eq.get("presence", {}).get("gain")))
+        menus.console.print("[bold]6. Loudnorm:[/bold] longform=I:{} TP:{} LRA:{}".format(
+            loud.get("longform", {}).get("I"), 
+            loud.get("longform", {}).get("TP"), 
+            loud.get("longform", {}).get("LRA")))
+        menus.console.print()
+        menus.console.print("  0. [dim]Volver[/dim]")
+        
+        choice = menus.Prompt.ask("\n[bold]Selecciona parametro a modificar[/bold]",
+            choices=["0", "1", "2", "3", "4", "5", "6"])
+        
+        if choice == "0":
+            break
+        
+        filters_file = Path(WORKSPACE_ROOT) / "config" / "filters.json"
+        filters = json.loads(filters_file.read_text())
+        
+        if choice == "1":
+            menus.console.print("\n[bold]Highpass:[/bold]")
+            new_freq = menus.Prompt.ask("Frecuencia normal (Hz)", default=str(hp.get("default_freq")))
+            new_muffled = menus.Prompt.ask("Frecuencia para voz amortiguada (Hz)", default=str(hp.get("muffled_voice_freq")))
+            filters["highpass"]["default_freq"] = int(new_freq)
+            filters["highpass"]["muffled_voice_freq"] = int(new_muffled)
+            
+        elif choice == "2":
+            menus.console.print("\n[bold]Denoising (afftdn):[/bold]")
+            new_mild = menus.Prompt.ask("NR mild (8-15)", default=str(afftdn.get("nr_mild")))
+            new_mod = menus.Prompt.ask("NR moderate (15-25)", default=str(afftdn.get("nr_moderate")))
+            new_heavy = menus.Prompt.ask("NR heavy (25-40)", default=str(afftdn.get("nr_heavy")))
+            filters["afftdn"]["nr_mild"] = int(new_mild)
+            filters["afftdn"]["nr_moderate"] = int(new_mod)
+            filters["afftdn"]["nr_heavy"] = int(new_heavy)
+            
+        elif choice == "3":
+            menus.console.print("\n[bold]Compressor:[/bold]")
+            new_thresh = menus.Prompt.ask("Threshold (-10 a -30 dB)", default=str(comp.get("threshold_db")))
+            new_ratio = menus.Prompt.ask("Ratio (2-10)", default=str(comp.get("ratio")))
+            new_makeup = menus.Prompt.ask("Makeup gain (0-20 dB)", default=str(comp.get("makeup_db")))
+            filters["compressor"]["threshold_db"] = int(new_thresh)
+            filters["compressor"]["ratio"] = int(new_ratio)
+            filters["compressor"]["makeup_db"] = int(new_makeup)
+            
+        elif choice == "4":
+            menus.console.print("\n[bold]Noise Gate:[/bold]")
+            new_above = menus.Prompt.ask("Above floor (4-10 dB)", default=str(gate.get("above_floor_db")))
+            new_ratio = menus.Prompt.ask("Ratio (4-20)", default=str(gate.get("ratio_heavy")))
+            filters["agate"]["above_floor_db"] = int(new_above)
+            filters["agate"]["ratio_heavy"] = int(new_ratio)
+            
+        elif choice == "5":
+            menus.console.print("\n[bold]EQ Presence:[/bold]")
+            new_freq = menus.Prompt.ask("Frecuencia (2000-6000 Hz)", default=str(eq.get("presence", {}).get("freq")))
+            new_gain = menus.Prompt.ask("Ganancia (-3 a +6 dB)", default=str(eq.get("presence", {}).get("gain")))
+            filters["eq"]["presence"]["freq"] = int(new_freq)
+            filters["eq"]["presence"]["gain"] = int(new_gain)
+            
+        elif choice == "6":
+            menus.console.print("\n[bold]Loudnorm:[/bold]")
+            new_i = menus.Prompt.ask("I target (-3 a -20)", default=str(loud.get("longform", {}).get("I")))
+            new_tp = menus.Prompt.ask("True Peak (-0.5 a -3)", default=str(loud.get("longform", {}).get("TP")))
+            new_lra = menus.Prompt.ask("LRA (4-15)", default=str(loud.get("longform", {}).get("LRA")))
+            filters["loudnorm"]["longform"]["I"] = int(new_i)
+            filters["loudnorm"]["longform"]["TP"] = float(new_tp)
+            filters["loudnorm"]["longform"]["LRA"] = int(new_lra)
+            filters["loudnorm"]["shorts"]["I"] = int(new_i) + 2
+            filters["loudnorm"]["shorts"]["TP"] = float(new_tp)
+            filters["loudnorm"]["shorts"]["LRA"] = int(new_lra) - 3
+        
+        filters_file.write_text(json.dumps(filters, indent=2))
+        reset_config()
+        config = ConfigProvider(WORKSPACE_ROOT)
+        menus.print_success("Configuracion guardada")
+
+
+def run_audio_preview_select() -> None:
+    sessions = session_manager.list_sessions()
+    
+    if not sessions:
+        menus.print_warning("No hay sesiones")
+        return
+    
+    menus.console.print("\n[bold cyan]=== Preview Audio ===[/bold cyan]\n")
+    menus.print_session_list(sessions)
+    
+    session_id = menus.prompt_session_id()
+    if not session_id:
+        return
+    
+    try:
+        preview_audio(session_id)
+    except FileNotFoundError:
+        menus.print_error(f"Sesion '{session_id}' no encontrada")
+
+
 def main():
     menus.clear_screen()
     menus.print_header()
@@ -474,6 +662,12 @@ def main():
             elif choice == "4":
                 menus.clear_screen()
                 run_settings()
+            elif choice == "5":
+                menus.clear_screen()
+                run_audio_settings()
+            elif choice == "6":
+                menus.clear_screen()
+                run_audio_preview_select()
             
             if choice != "0":
                 menus.Prompt.ask("\n[dim]Presiona Enter para continuar...[/dim]", default="")
