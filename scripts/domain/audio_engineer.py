@@ -11,7 +11,7 @@ from typing import Any
 
 import imageio_ffmpeg
 
-from scripts.config import ConfigProvider, get_config
+from scripts.config import ConfigProvider, get_config, reset_config
 
 
 def _get_ffmpeg_path() -> str:
@@ -25,7 +25,7 @@ class AudioEngineer:
     def diagnose(self, input_wav: Path) -> dict[str, Any]:
         """
         Step 1: Diagnose the recording.
-        Measure RMS, peak, and noise floor using FFmpeg astats.
+        Measure RMS, peak, noise floor, and frequency bands for problem detection.
         
         Returns diagnosis dict with:
         - rms_db: Overall RMS level in dB
@@ -33,6 +33,7 @@ class AudioEngineer:
         - noise_floor_db: Measured noise floor
         - headroom_db: Peak - RMS
         - snr_estimate_db: RMS - noise floor
+        - muffled_ratio: Ratio of lows to highs (for underwater detection)
         - problems_detected: List of identified problems
         - problems_not_present: List of confirmed absent problems
         """
@@ -76,6 +77,7 @@ class AudioEngineer:
                 "noise_floor_db": -50.0,
                 "headroom_db": 24.0,
                 "snr_estimate_db": 20.0,
+                "muffled_ratio": 1.0,
                 "problems_detected": [],
                 "problems_not_present": [],
                 "environment_guess": "unknown"
@@ -83,6 +85,8 @@ class AudioEngineer:
         
         headroom_db = peak_db - rms_db if peak_db else 0
         snr_estimate = rms_db - noise_floor_db if noise_floor_db else 0
+        
+        muffled_ratio = self._analyze_frequency_bands(input_wav, ffmpeg_path)
         
         problems_detected = []
         problems_not_present = []
@@ -106,6 +110,16 @@ class AudioEngineer:
         if snr_estimate < diag_config.get("snr_minimum", 18):
             problems_detected.append("low_snr")
         
+        if muffled_ratio > diag_config.get("muffled_ratio_threshold", 2.0):
+            problems_detected.append("muffled")
+        
+        if rms_db < diag_config.get("quiet_voice_rms", -25):
+            if snr_estimate > diag_config.get("snr_minimum", 18):
+                problems_detected.append("quiet_voice")
+        
+        if noise_floor_db > -45 and muffled_ratio > 1.5:
+            problems_detected.append("underwater")
+        
         environment = "quiet_room"
         if noise_floor_db > -40:
             environment = "noisy_environment"
@@ -118,21 +132,72 @@ class AudioEngineer:
             "noise_floor_db": noise_floor_db,
             "headroom_db": headroom_db,
             "snr_estimate_db": snr_estimate,
+            "muffled_ratio": muffled_ratio,
             "problems_detected": problems_detected,
             "problems_not_present": problems_not_present,
             "environment_guess": environment
         }
     
+    def _analyze_frequency_bands(self, input_wav: Path, ffmpeg_path: str) -> float:
+        """
+        Analyze frequency bands to detect muffled/underwater recordings.
+        Compares energy in lows (100-500Hz) vs highs (2-5kHz).
+        """
+        low_result = subprocess.run(
+            [ffmpeg_path, "-i", str(input_wav),
+             "-af", "highpass=f=100:highpass=f=500,silencedetect=noise=-60dB:d=0.1",
+             "-f", "null", "-"],
+            capture_output=True,
+            text=True
+        )
+        
+        high_result = subprocess.run(
+            [ffmpeg_path, "-i", str(input_wav),
+             "-af", "lowpass=f=2000:lowpass=f=5000,silencedetect=noise=-60dB:d=0.1",
+             "-f", "null", "-"],
+            capture_output=True,
+            text=True
+        )
+        
+        low_db = -50
+        high_db = -50
+        
+        for line in low_result.stderr.splitlines():
+            if "RMS dB" in line:
+                try:
+                    parts = line.split(":")
+                    if len(parts) >= 2:
+                        val = parts[-1].strip().split()[0]
+                        low_db = float(val)
+                except (ValueError, IndexError):
+                    pass
+        
+        for line in high_result.stderr.splitlines():
+            if "RMS dB" in line:
+                try:
+                    parts = line.split(":")
+                    if len(parts) >= 2:
+                        val = parts[-1].strip().split()[0]
+                        high_db = float(val)
+                except (ValueError, IndexError):
+                    pass
+        
+        if high_db < -60:
+            return 2.0
+        
+        return low_db - high_db
+    
     def build_filter_chain(self, diagnosis: dict[str, Any], target: str = "analysis") -> str:
         """
         Step 2: Build adaptive filter chain based on diagnosis.
         
-        Order (non-negotiable):
+        Order (professional podcast chain):
         1. highpass (remove rumble)
         2. afftdn (spectral denoising)
-        3. agate (noise gate) - only if noise floor > -50dB
-        4. equalizer (corrective EQ) - only confirmed problems
-        5. loudnorm (always last)
+        3. agate (noise gate) - BEFORE compressor to avoid pumping
+        4. equalizer (grave + mud_cut + presence) - professional warmth
+        5. compressor (dynamics)
+        6. loudnorm (always last, platform-safe -14 LUFS)
         
         Args:
             diagnosis: Output from diagnose()
@@ -142,9 +207,17 @@ class AudioEngineer:
             FFmpeg filter chain string
         """
         filters = []
+        problems = diagnosis.get("problems_detected", [])
         
         hp_config = self._config.get_highpass_settings()
-        hp_freq = hp_config.get("deep_voice_freq", 60) if diagnosis.get("deep_voice") else hp_config.get("default_freq", 80)
+        
+        if "muffled" in problems or "underwater" in problems:
+            hp_freq = hp_config.get("muffled_voice_freq", 120)
+        elif "heavy_noise" in problems:
+            hp_freq = hp_config.get("aggressive_freq", 100)
+        else:
+            hp_freq = hp_config.get("default_freq", 80)
+        
         hp_poles = hp_config.get("poles", 2)
         filters.append(f"highpass=f={hp_freq}:poles={hp_poles}")
         
@@ -152,44 +225,72 @@ class AudioEngineer:
         if nf > -65:
             afftdn_config = self._config.get_afftdn_settings()
             if nf > -40:
-                nr = afftdn_config.get("nr_heavy", 22)
+                nr = afftdn_config.get("nr_heavy", 35)
             elif nf > -50:
-                nr = afftdn_config.get("nr_moderate", 15)
+                nr = afftdn_config.get("nr_moderate", 25)
             else:
-                nr = afftdn_config.get("nr_mild", 8)
+                nr = afftdn_config.get("nr_mild", 15)
+            
+            if "heavy_noise" in problems:
+                nr = min(nr + 5, afftdn_config.get("nr_max_voice", 40))
             
             nf_offset = afftdn_config.get("noise_floor_offset", 5)
             filters.append(f"afftdn=nr={nr}:nf={nf + nf_offset}")
         
         if nf > -50:
             agate_config = self._config.get_agate_settings()
-            above_floor = agate_config.get("above_floor_db", 8)
+            above_floor = agate_config.get("above_floor_db", 6)
             linear_threshold = 10 ** ((nf + above_floor) / 20)
-            ratio = agate_config.get("ratio_heavy", 12) if nf > -40 else agate_config.get("ratio_mild", 6)
+            ratio = agate_config.get("ratio_heavy", 16) if nf > -40 else agate_config.get("ratio_mild", 8)
             attack = agate_config.get("attack_ms", 10)
             release = agate_config.get("release_ms", 60)
             filters.append(f"agate=threshold={linear_threshold:.4f}:ratio={ratio}:attack={attack}:release={release}")
         
         eq_config = self._config.get_eq_settings()
         
-        if "proximity_effect" in diagnosis.get("problems_detected", []):
+        grave = eq_config.get("grave", {})
+        filters.append(f"equalizer=f={grave.get('freq', 160)}:t=q:w={grave.get('width', 0.8)}:g={grave.get('gain', 3)}")
+        
+        mud_cut = eq_config.get("mud_cut", {})
+        filters.append(f"equalizer=f={mud_cut.get('freq', 350)}:t=q:w={mud_cut.get('width', 1.2)}:g={mud_cut.get('gain', -2)}")
+        
+        pres = eq_config.get("presence", {})
+        filters.append(f"equalizer=f={pres.get('freq', 3500)}:t=q:w={pres.get('width', 1.0)}:g={pres.get('gain', 3)}")
+        
+        if "muffled" in problems or "underwater" in problems:
+            clarity = eq_config.get("voice_clarity", {})
+            filters.append(f"equalizer=f={clarity.get('freq', 4000)}:t=q:w={clarity.get('width', 0.8)}:g={clarity.get('gain', 2)}")
+        
+        if "proximity_effect" in problems:
             prox = eq_config.get("proximity", {})
             filters.append(f"equalizer=f={prox.get('freq', 120)}:t=q:w={prox.get('width', 1.0)}:g={prox.get('gain', -3)}")
         
-        if "boxiness" in diagnosis.get("problems_detected", []):
+        if "boxiness" in problems:
             box = eq_config.get("boxiness", {})
             filters.append(f"equalizer=f={box.get('freq', 400)}:t=q:w={box.get('width', 1.5)}:g={box.get('gain', -2)}")
         
-        if "sibilance" in diagnosis.get("problems_detected", []):
+        if "sibilance" in problems:
             sib = eq_config.get("sibilance", {})
             filters.append(f"equalizer=f={sib.get('freq', 7000)}:t=q:w={sib.get('width', 1.0)}:g={sib.get('gain', -3)}")
         
-        if "muffled" in diagnosis.get("problems_detected", []):
-            pres = eq_config.get("presence", {})
-            filters.append(f"equalizer=f={pres.get('freq', 10000)}:t=q:w={pres.get('width', 0.8)}:g={pres.get('gain', 2)}")
+        comp_config = self._config.get_compressor_settings()
+        comp_threshold_linear = 10 ** (comp_config.get("threshold_db", -25) / 20)
+        comp_ratio = comp_config.get("ratio", 4)
+        comp_attack = comp_config.get("attack_ms", 20)
+        comp_release = comp_config.get("release_ms", 250)
+        comp_makeup = comp_config.get("makeup_db", 4)
+        comp_knee = comp_config.get("knee", 0.5)
+        
+        if "quiet_voice" in problems:
+            comp_makeup = comp_makeup + 4
+        
+        if "heavy_noise" in problems or "moderate_noise" in problems:
+            comp_threshold_linear = comp_threshold_linear * 1.5
+        
+        filters.append(f"acompressor=threshold={comp_threshold_linear:.4f}:ratio={comp_ratio}:attack={comp_attack}:release={comp_release}:makeup={comp_makeup}:knee={comp_knee}")
         
         loudnorm_targets = self._config.get_loudnorm_targets(target)
-        filters.append(f"loudnorm=I={loudnorm_targets.get('I', -16)}:TP={loudnorm_targets.get('TP', -1.5)}:LRA={loudnorm_targets.get('LRA', 11)}")
+        filters.append(f"loudnorm=I={loudnorm_targets.get('I', -14)}:TP={loudnorm_targets.get('TP', -1)}:LRA={loudnorm_targets.get('LRA', 9)}")
         
         return ",".join(filters)
     

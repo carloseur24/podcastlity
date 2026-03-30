@@ -101,6 +101,9 @@ class ConfigProvider:
     def get_stereo_settings(self) -> dict:
         return self._filters.get("stereo", {})
     
+    def get_compressor_settings(self) -> dict:
+        return self._filters.get("compressor", {})
+    
     def get_diagnostic_settings(self) -> dict:
         return self._filters.get("diagnostic", {})
     

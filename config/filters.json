@@ -2,21 +2,31 @@
   "highpass": {
     "default_freq": 80,
     "deep_voice_freq": 60,
+    "muffled_voice_freq": 120,
+    "aggressive_freq": 100,
     "poles": 2
   },
   "afftdn": {
-    "nr_mild": 8,
-    "nr_moderate": 15,
-    "nr_heavy": 22,
-    "nr_max_voice": 25,
+    "nr_mild": 15,
+    "nr_moderate": 25,
+    "nr_heavy": 35,
+    "nr_max_voice": 40,
     "noise_floor_offset": 5
   },
+  "compressor": {
+    "threshold_db": -25,
+    "ratio": 4,
+    "attack_ms": 20,
+    "release_ms": 250,
+    "makeup_db": 4,
+    "knee": 0.5
+  },
   "agate": {
-    "above_floor_db": 8,
-    "ratio_mild": 6,
-    "ratio_heavy": 12,
-    "attack_ms": 10,
-    "release_ms": 60
+    "above_floor_db": 6,
+    "ratio_mild": 8,
+    "ratio_heavy": 16,
+    "attack_ms": 3,
+    "release_ms": 50
   },
   "eq": {
     "proximity": {
@@ -34,8 +44,23 @@
       "width": 1.0,
       "gain": -3
     },
+    "grave": {
+      "freq": 160,
+      "width": 0.8,
+      "gain": 3
+    },
+    "mud_cut": {
+      "freq": 350,
+      "width": 1.2,
+      "gain": -2
+    },
     "presence": {
-      "freq": 10000,
+      "freq": 3500,
+      "width": 1.0,
+      "gain": 3
+    },
+    "voice_clarity": {
+      "freq": 4000,
       "width": 0.8,
       "gain": 2
     }
@@ -44,12 +69,12 @@
     "shorts": {
       "I": -14,
       "TP": -1,
-      "LRA": 7
+      "LRA": 6
     },
     "longform": {
-      "I": -16,
-      "TP": -1.5,
-      "LRA": 11
+      "I": -14,
+      "TP": -1,
+      "LRA": 9
     }
   },
   "stereo": {
@@ -62,6 +87,9 @@
     "nr_max_voice": 25,
     "rms_delta_max": 12,
     "snr_minimum": 18,
-    "noise_floor_warn": -48
+    "noise_floor_warn": -48,
+    "muffled_ratio_threshold": 2.0,
+    "quiet_voice_rms": -25,
+    "underwater_peak_hz": 250
   }
 }
