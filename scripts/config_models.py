@@ -15,9 +15,7 @@ class HighpassSettings(BaseModel):
 
 
 class AfftdnSettings(BaseModel):
-    nr_mild: int = Field(
-        default=15, ge=0, le=25, description="Max 25 for voice to avoid artifacts"
-    )
+    nr_mild: int = Field(default=15, ge=0, le=25, description="Max 25 for voice to avoid artifacts")
     nr_moderate: int = Field(default=25, ge=0, le=35)
     nr_heavy: int = Field(default=35, ge=0, le=50)
     nr_max_voice: int = Field(default=40, ge=0, le=60)
@@ -98,9 +96,7 @@ class LoudnormSettings(BaseModel):
 
 
 class StereoSettings(BaseModel):
-    extrastereo_m: float = Field(
-        default=1.5, ge=0, le=3, description="0=mono, 1=equal, >1=wide"
-    )
+    extrastereo_m: float = Field(default=1.5, ge=0, le=3, description="0=mono, 1=equal, >1=wide")
 
 
 class DiagnosticSettings(BaseModel):
@@ -147,9 +143,7 @@ def validate_filters_config(config_dict: dict) -> tuple[list[str], list[str]]:
 
     nr_heavy = afftdn.get("nr_heavy", 35)
     if nr_heavy > 50:
-        warnings.append(
-            f"afftdn.nr_heavy={nr_heavy} is very high - severe artifacts expected"
-        )
+        warnings.append(f"afftdn.nr_heavy={nr_heavy} is very high - severe artifacts expected")
 
     comp = config_dict.get("compressor", {})
     makeup = comp.get("makeup_db", 1)

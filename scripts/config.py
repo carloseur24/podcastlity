@@ -6,7 +6,6 @@ Loads settings from config/ JSON files and provides typed access.
 import json
 import warnings as _warnings
 from pathlib import Path
-from typing import Any
 
 from scripts.config_models import validate_filters_config
 
@@ -33,7 +32,7 @@ class ConfigProvider:
     def _load_json(self, filename: str) -> dict:
         path = self._config_dir / filename
         if path.exists():
-            with open(path, "r") as f:
+            with open(path) as f:
                 return json.load(f)
         return {}
 
@@ -179,19 +178,13 @@ class ConfigProvider:
     def get_profile_remove_fillers(self, profile_name: str = "default") -> bool:
         return self.get_profile(profile_name).get("remove_fillers", False)
 
-    def get_profile_filler_confidence_threshold(
-        self, profile_name: str = "default"
-    ) -> float:
+    def get_profile_filler_confidence_threshold(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("filler_confidence_threshold", 0.9)
 
-    def get_profile_low_energy_min_duration(
-        self, profile_name: str = "default"
-    ) -> float:
+    def get_profile_low_energy_min_duration(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("low_energy_min_duration_s", 5.0)
 
-    def get_profile_target_duration(
-        self, profile_name: str = "default"
-    ) -> float | None:
+    def get_profile_target_duration(self, profile_name: str = "default") -> float | None:
         return self.get_profile(profile_name).get("target_duration_s")
 
     def get_profile_max_duration(self, profile_name: str = "default") -> float | None:
