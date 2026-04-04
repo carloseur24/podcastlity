@@ -34,7 +34,7 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("cutmap", f"Session '{session_id}' not found")
 
-    profile_name = session.profile or "longform"
+    profile_name = session.profile or "default"
 
     # Check if cutting is enabled (default: disabled)
     enable_cutting = config.get_profile_enable_cutting(profile_name)
@@ -94,7 +94,7 @@ def run(session_id: str, workspace: str) -> dict:
 
     profiles_file = workspace_path / "config" / "profiles.json"
     profiles = json.loads(profiles_file.read_text())
-    profile = profiles.get(profile_name, profiles["longform"])
+    profile = profiles.get(profile_name, profiles.get("default", {}))
 
     # Camera proxy in output/proxies
     camera_proxy = (
@@ -183,65 +183,36 @@ def _build_cutmap(
     if transcript_segments:
         cut_points = _snap_to_sentence_boundaries(cut_points, transcript_segments)
 
-    if profile_name == "shorts":
-        strict_cut_points = [(t, ty, d) for t, ty, d in cut_points if d >= 0.5]
-        if len(strict_cut_points) < 1:
-            keep_intervals = [{"start": 0, "end": duration, "type": "content"}]
-            duration_saved = 0
-        else:
-            cut_points = strict_cut_points
-            duration_saved = sum(d for _, _, d in cut_points)
-            keep_intervals = []
-            current_pos = 0.0
-            min_segment = 1.5
-            for cp_time, cp_type, cp_duration in cut_points:
-                if cp_time > current_pos + min_segment:
-                    keep_intervals.append(
-                        {
-                            "start": current_pos,
-                            "end": cp_time,
-                            "type": "content",
-                        }
-                    )
-                    current_pos = cp_time + cp_duration
-            if current_pos < duration:
-                keep_intervals.append(
-                    {
-                        "start": current_pos,
-                        "end": duration,
-                        "type": "content",
-                    }
-                )
-    else:
-        duration_saved = sum(d for _, _, d in cut_points)
-        keep_intervals = []
-        current_pos = 0.0
+    # Default behavior - no shorts-specific logic
+    duration_saved = sum(d for _, _, d in cut_points)
+    keep_intervals = []
+    current_pos = 0.0
 
-        if silence_map.get("silence_intervals"):
-            first_silence = silence_map["silence_intervals"][0]
-            if first_silence.get("type") == "leading":
-                current_pos = first_silence["end"]
+    if silence_map.get("silence_intervals"):
+        first_silence = silence_map["silence_intervals"][0]
+        if first_silence.get("type") == "leading":
+            current_pos = first_silence["end"]
 
-        min_segment = 2.0
-        for cp_time, cp_type, cp_duration in cut_points:
-            if cp_time > current_pos + min_segment:
-                keep_intervals.append(
-                    {
-                        "start": current_pos,
-                        "end": cp_time,
-                        "type": "content",
-                    }
-                )
-                current_pos = cp_time + cp_duration
-
-        if current_pos < duration:
+    min_segment = 2.0
+    for cp_time, cp_type, cp_duration in cut_points:
+        if cp_time > current_pos + min_segment:
             keep_intervals.append(
                 {
                     "start": current_pos,
-                    "end": duration,
+                    "end": cp_time,
                     "type": "content",
                 }
             )
+            current_pos = cp_time + cp_duration
+
+    if current_pos < duration:
+        keep_intervals.append(
+            {
+                "start": current_pos,
+                "end": duration,
+                "type": "content",
+            }
+        )
 
     output_duration = sum(i["end"] - i["start"] for i in keep_intervals)
 
