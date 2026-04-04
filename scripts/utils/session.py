@@ -1,6 +1,6 @@
 import json
 from pathlib import Path
-from typing import Optional
+
 from ..models import Session
 
 
@@ -71,7 +71,7 @@ class SessionManager:
         session.status = status  # type: ignore
         self.save_session(session)
 
-    def get_next_stage(self, session_id: str) -> Optional[str]:
+    def get_next_stage(self, session_id: str) -> str | None:
         status_order = [
             "created",
             "ingested",
@@ -84,9 +84,7 @@ class SessionManager:
             "done",
         ]
         session = self.load_session(session_id)
-        current_idx = (
-            status_order.index(session.status) if session.status in status_order else 0
-        )
+        current_idx = status_order.index(session.status) if session.status in status_order else 0
         if current_idx < len(status_order) - 1:
             return status_order[current_idx + 1]
         return None
@@ -110,9 +108,7 @@ def load_brand(workspace_root: str) -> dict:
 
 def load_filler_words(workspace_root: str) -> list[str]:
     filler_file = Path(workspace_root) / "config" / "filler_words_es.txt"
-    return [
-        w.strip().lower() for w in filler_file.read_text().splitlines() if w.strip()
-    ]
+    return [w.strip().lower() for w in filler_file.read_text().splitlines() if w.strip()]
 
 
 def ensure_session_dirs(workspace_root: str, session_id: str) -> None:

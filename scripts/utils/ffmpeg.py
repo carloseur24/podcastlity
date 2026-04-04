@@ -1,8 +1,8 @@
-import subprocess
 import json
 import re
+import subprocess
 from pathlib import Path
-from typing import Optional
+
 import imageio_ffmpeg
 
 from scripts.config import get_config
@@ -450,8 +450,8 @@ def enhance_audio(
 def export_full_quality(
     input_path: str,
     output_path: str,
-    start: Optional[float] = None,
-    end: Optional[float] = None,
+    start: float | None = None,
+    end: float | None = None,
 ) -> None:
     """
     Export in full quality (or original) quality.
