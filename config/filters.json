@@ -15,11 +15,11 @@
     "noise_floor_offset": 5
   },
   "compressor": {
-    "threshold_db": -32,
-    "ratio": 6,
-    "attack_ms": 10,
-    "release_ms": 250,
-    "makeup_db": 3,
+    "threshold_db": -24,
+    "ratio": 3.5,
+    "attack_ms": 5,
+    "release_ms": 100,
+    "makeup_db": 4,
     "knee": 1
   },
   "agate": {
@@ -36,9 +36,9 @@
       "gain": -3
     },
     "boxiness": {
-      "freq": 400,
+      "freq": 450,
       "width": 1.5,
-      "gain": -2
+      "gain": -3
     },
     "sibilance": {
       "freq": 7000,
@@ -58,13 +58,26 @@
     "presence": {
       "freq": 3500,
       "width": 1.0,
-      "gain": 3
+      "gain": 2
     },
     "voice_clarity": {
       "freq": 4000,
       "width": 0.8,
       "gain": 2
+    },
+    "air_shelf": {
+      "freq": 10000,
+      "width": "shelf",
+      "gain": 3
+    },
+    "presence_boost": {
+      "freq": 3500,
+      "width": "shelf",
+      "gain": 2
     }
+  },
+  "limiter": {
+    "ceiling_db": -1.0
   },
   "loudnorm": {
     "shorts": {

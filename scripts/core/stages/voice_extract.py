@@ -101,11 +101,14 @@ def _apply_podcast_chain(
     input_wav: str, output_wav: str, profile: str = "longform"
 ) -> bool:
     """
-    Apply professional podcast audio chain:
+    Apply professional podcast audio chain with custom EQ settings:
+    Based on frequency analysis:
     1. highpass 80Hz - remove low rumble
-    2. equalizer 2-4kHz +3dB - vocal sheen/crispness
-    3. compressor - consistent volume
-    4. loudnorm - profile-specific LUFS (TikTok: -14, Podcast: -16)
+    2. Bell cut at 450Hz (-3dB) - remove "boxy" sound from 400-500Hz
+    3. Compressor: threshold -24dB, ratio 3.5:1, attack 5ms, release 100ms
+    4. High shelf at 10kHz (+3dB) - add "air" and crispness
+    5. Limiter: ceiling -1.0dB
+    6. loudnorm: profile-specific LUFS
 
     Profile-specific settings:
     - longform: -16 LUFS, -1.5 dBTP (Spotify/Apple Podcasts standard)
@@ -123,11 +126,14 @@ def _apply_podcast_chain(
         target_lufs = "-16"
         true_peak = "-1.5"
 
-    # Full podcast quality chain
+    # Full podcast quality chain with custom EQ settings
+    # Based on frequency analysis: HPF @ 80Hz, Bell cut @ 450Hz, Compressor, Air shelf @ 10kHz
     filter_chain = (
-        "highpass=f=80,"  # Remove low rumble
-        "equalizer=f=3000:g=3:w=2000,"  # Vocal sheen 2-4kHz +3dB
-        "acompressor=threshold=-20dB:ratio=4:attack=5:release=50,"  # Voice compression
+        "highpass=f=80:poles=2,"  # Remove low rumble (24dB/oct with poles=2)
+        "equalizer=f=450:g=-3:w=300,"  # Bell cut at 450Hz -3dB (remove boxy sound)
+        "acompressor=threshold=-24dB:ratio=3.5:attack=5:release=100:makeup=4dB:knee=1,"  # Voice compression
+        "highshelf=f=10000:g=3,"  # Air shelf at 10kHz +3dB (add crispness/presence)
+        f"alimiter=limit=-1dB,"  # Hard limiter at -1dB ceiling
         f"loudnorm=I={target_lufs}:TP={true_peak}:LRA=11"  # Profile-specific loudness
     )
 
@@ -149,7 +155,7 @@ def _apply_podcast_chain(
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if result.returncode == 0:
             print(
-                f"[voice_extract] Applied podcast chain: highpass + EQ + compressor + loudnorm"
+                f"[voice_extract] Applied podcast chain: HPF(80Hz) + BellCut(450Hz,-3dB) + Compressor(threshold=-24dB,ratio=3.5) + AirShelf(10kHz,+3dB) + Limiter(-1dB) + loudnorm({target_lufs}LUFS)"
             )
             return True
         else:
