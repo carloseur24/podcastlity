@@ -3,10 +3,10 @@
 import json
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
-from scripts.core.exceptions import StageError
 from scripts.config import get_config
+from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -46,9 +46,7 @@ def run(session_id: str, workspace: str) -> dict:
         cutmap_dir.mkdir(parents=True, exist_ok=True)
 
         # Get video duration
-        camera_proxy = (
-            workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
-        )
+        camera_proxy = workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
         if camera_proxy.exists():
             duration = ffmpeg.get_duration(str(camera_proxy))
         else:
@@ -85,9 +83,7 @@ def run(session_id: str, workspace: str) -> dict:
     filler_map = json.loads((analysis_dir / "filler_map.json").read_text())
 
     # Load transcript for smart cutting (output/transcripts)
-    transcript_file = (
-        workspace_path / "output" / "transcripts" / session_id / "segments.json"
-    )
+    transcript_file = workspace_path / "output" / "transcripts" / session_id / "segments.json"
     transcript_segments = []
     if transcript_file.exists():
         transcript_segments = json.loads(transcript_file.read_text())
@@ -97,9 +93,7 @@ def run(session_id: str, workspace: str) -> dict:
     profile = profiles.get(profile_name, profiles.get("default", {}))
 
     # Camera proxy in output/proxies
-    camera_proxy = (
-        workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
-    )
+    camera_proxy = workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
     if camera_proxy.exists():
         duration = ffmpeg.get_duration(str(camera_proxy))
     else:
@@ -228,9 +222,7 @@ def _build_cutmap(
         "removed_fillers": len(filler_map.get("fillers", [])),
         "hook_start_s": keep_intervals[0]["start"] if keep_intervals else 0,
         "title": title,
-        "agent_notes": "Transcript-aware cutmap"
-        if transcript_segments
-        else "Algorithmic cutmap",
+        "agent_notes": "Transcript-aware cutmap" if transcript_segments else "Algorithmic cutmap",
     }
 
 

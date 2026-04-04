@@ -3,14 +3,13 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from scipy.io import wavfile
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
 from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -72,16 +71,12 @@ def run(session_id: str, workspace: str) -> dict:
 def _load_filler_words(workspace_path: Path) -> list[str]:
     filler_file = workspace_path / "config" / "filler_words_es.txt"
     if filler_file.exists():
-        return [
-            w.strip().lower() for w in filler_file.read_text().splitlines() if w.strip()
-        ]
+        return [w.strip().lower() for w in filler_file.read_text().splitlines() if w.strip()]
     return []
 
 
 def _load_transcript(workspace_path: Path, session_id: str) -> list:
-    transcript_file = (
-        workspace_path / "output" / "transcripts" / session_id / "segments.json"
-    )
+    transcript_file = workspace_path / "output" / "transcripts" / session_id / "segments.json"
     if transcript_file.exists():
         return json.loads(transcript_file.read_text())
     return []

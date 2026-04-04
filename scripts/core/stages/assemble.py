@@ -12,9 +12,9 @@ Pipeline flow:
 import json
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
 from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -40,9 +40,7 @@ def run(session_id: str, workspace: str) -> dict:
     profile_name = session.profile or "default"
 
     # Cutmap in output/cutmaps
-    cutmap_file = (
-        workspace_path / "output" / "cutmaps" / session_id / f"{profile_name}.json"
-    )
+    cutmap_file = workspace_path / "output" / "cutmaps" / session_id / f"{profile_name}.json"
     if not cutmap_file.exists():
         raise StageError("assemble", f"Cutmap not found: {cutmap_file}")
 
@@ -59,7 +57,7 @@ def run(session_id: str, workspace: str) -> dict:
     source_video = camera_original if camera_original.exists() else camera_proxy
 
     if not source_video.exists():
-        raise StageError("assemble", f"Source video not found")
+        raise StageError("assemble", "Source video not found")
 
     # Get the cleaned audio from output/audio
     voice_audio = workspace_path / "output" / "audio" / session_id / "master_voice.wav"
