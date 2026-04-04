@@ -65,3 +65,6 @@ workspace_demo/*/
 
 node_modules/
 vendor/
+
+# Temp study files
+temp/
