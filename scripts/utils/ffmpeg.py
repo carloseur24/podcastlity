@@ -17,6 +17,18 @@ def get_ffmpeg_path() -> str:
     return ffmpeg_path
 
 
+def get_ffprobe_path() -> str:
+    """Get ffprobe path - uses bundled or system ffprobe."""
+    # Try system ffprobe first (more reliable)
+    system_ffprobe = "/usr/bin/ffprobe"
+    if Path(system_ffprobe).exists():
+        return system_ffprobe
+
+    # Fall back to imageio-ffmpeg's ffprobe
+    ffmpeg_path = get_ffmpeg_path()
+    return ffmpeg_path.replace("ffmpeg", "ffprobe")
+
+
 def run_ffmpeg(
     args: list,
     capture_output: bool = False,
@@ -236,11 +248,9 @@ def burn_subtitles(
 
 
 def get_resolution(video_path: str) -> tuple[int, int]:
-    cmd = [get_ffmpeg_path(), "-i", video_path, "-f", "ffmetadata", "-"]
-    result = subprocess.run(cmd, capture_output=True, text=True)
-    # Use ffprobe for cleaner solution
+    """Get video resolution using ffprobe."""
     cmd = [
-        get_ffmpeg_path().replace("ffmpeg", "ffprobe"),
+        get_ffprobe_path(),
         "-v",
         "error",
         "-select_streams",
@@ -257,6 +267,66 @@ def get_resolution(video_path: str) -> tuple[int, int]:
         return data["streams"][0]["width"], data["streams"][0]["height"]
     except Exception:
         return 1920, 1080
+
+
+def get_video_codec(video_path: str) -> str:
+    """Get the video codec name (e.g., 'h264', 'hevc')."""
+    cmd = [
+        get_ffprobe_path(),
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=codec_name",
+        "-of",
+        "json",
+        video_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    try:
+        data = json.loads(result.stdout)
+        return data["streams"][0].get("codec_name", "unknown")
+    except Exception:
+        return "unknown"
+
+
+def transcode_to_h264(input_path: str, output_path: str) -> None:
+    """Transcode video to H.264 codec (Remotion-compatible, browser-friendly)."""
+    transcode_to_h264_baseline(input_path, output_path)
+
+
+def transcode_to_h264_baseline(input_path: str, output_path: str) -> None:
+    """Transcode video to H.264 baseline profile for maximum browser compatibility."""
+    # Use system ffmpeg with baseline profile for maximum browser compatibility
+    cmd = [
+        "/usr/bin/ffmpeg",
+        "-y",
+        "-i",
+        input_path,
+        "-c:v",
+        "libx264",
+        "-preset",
+        "medium",
+        "-crf",
+        "23",
+        "-profile:v",
+        "baseline",  # Baseline profile for max compatibility
+        "-level",
+        "3.0",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        "-movflags",
+        "+faststart",  # Enable streaming
+        output_path,
+    ]
+    result = subprocess.run(cmd, capture_output=True, text=True)
+    if result.returncode != 0:
+        print(f"[ffmpeg] Transcode stderr: {result.stderr}")
+        raise subprocess.CalledProcessError(result.returncode, cmd)
+    print(f"[ffmpeg] Transcoded to H.264 baseline: {output_path}")
 
 
 def extract_frame(
@@ -304,7 +374,7 @@ def apply_loudnorm(
 
 def get_frame_count(video_path: str) -> int:
     cmd = [
-        get_ffmpeg_path().replace("ffmpeg", "ffprobe"),
+        get_ffprobe_path(),
         "-v",
         "error",
         "-count_frames",

@@ -30,6 +30,7 @@ class Session(BaseModel):
             "analyzed",
             "cutmapped",
             "assembled",
+            "subtitled",
             "exported",
             "done",
         ]
