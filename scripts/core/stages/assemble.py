@@ -37,7 +37,7 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("assemble", f"Session '{session_id}' not found")
 
-    profile_name = session.profile or "longform"
+    profile_name = session.profile or "default"
 
     # Cutmap in output/cutmaps
     cutmap_file = (
@@ -119,11 +119,6 @@ def run(session_id: str, workspace: str) -> dict:
                 stereo_widen=True,
             )
             Path(temp_with_audio).replace(output_file)
-
-        if profile_name == "shorts":
-            vertical_file = proxies_dir / f"assembled_{profile_name}_vertical.mp4"
-            ffmpeg.convert_to_vertical(str(output_file), str(vertical_file))
-            vertical_file.replace(output_file)
 
         assembled_file = str(output_file)
 
