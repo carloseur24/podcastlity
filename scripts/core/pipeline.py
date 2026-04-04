@@ -49,7 +49,13 @@ class Pipeline:
     SHORTS_STAGES = [
         StageInfo("Ingest", "ingested", ingest, "Copy files to session directory"),
         StageInfo("Proxies", "proxied", proxies, "Create proxies and extract audio"),
-        StageInfo("Prepare", "cutmapped", None, "Preprocess + analyze + cutmap"),
+        StageInfo(
+            "VoiceExtract",
+            "voice_extracted",
+            voice_extract,
+            "Extract voice + noise reduction",
+        ),
+        StageInfo("Prepare", "cutmapped", None, "Analyze + cutmap"),
         StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
         StageInfo("Export", "exported", export, "Render final videos"),
     ]
