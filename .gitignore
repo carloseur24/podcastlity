@@ -81,3 +81,5 @@ session-mvp.json
 remotion/input_video.mp4
 
 remotion/build
+# Remotion test files
+remotion/test_*.json
