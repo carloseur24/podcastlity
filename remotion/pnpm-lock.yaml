@@ -9,13 +9,19 @@ importers:
   .:
     dependencies:
       '@remotion/captions':
-        specifier: ^4.0.0
+        specifier: 4.0.443
         version: 4.0.443
       '@remotion/cli':
-        specifier: ^4.0.0
+        specifier: 4.0.443
+        version: 4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@remotion/fonts':
+        specifier: ^4.0.445
+        version: 4.0.445(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@remotion/media':
+        specifier: 4.0.443
         version: 4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@remotion/renderer':
-        specifier: ^4.0.0
+        specifier: 4.0.443
         version: 4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       react:
         specifier: ^18.2.0
@@ -24,7 +30,7 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
       remotion:
-        specifier: ^4.0.0
+        specifier: 4.0.443
         version: 4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
     devDependencies:
       '@types/react':
@@ -319,6 +325,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
+  '@remotion/fonts@4.0.445':
+    resolution: {integrity: sha512-+1VCpo/dD2HSS6yXmEHEBZx6R6AnwpLaVTyYrFYHwisvKUPh5U57gm85yfunZ0EPXVLsnViA5A793YdzVY3f0Q==}
+
   '@remotion/licensing@4.0.443':
     resolution: {integrity: sha512-bZpZJ4dJ0QWwC+m2hcLhj63nZE/LwEI1gFbIOZ6/GLiDasWnL1deWs4eoUCSCIyf9MZFsmsibNnj5D2BRp9afQ==}
 
@@ -327,6 +336,12 @@ packages:
 
   '@remotion/media-utils@4.0.443':
     resolution: {integrity: sha512-2ybHWY1Egj9rW1L2Hk7fAlNmP3Z2lWETAREbB+azzGR8SBCuzHuJINxKN/NP/VGN07laAVY4TiNCDDOUnMHcUQ==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@remotion/media@4.0.443':
+    resolution: {integrity: sha512-MpdSM43IAzW1ZZo4GBiWm5Y7EdcD88V20xbTbS5l+EVt9e5fjMSlcWbkktGNVVrYsBNSNcSlOxxHdL4Ioxk4Pw==}
     peerDependencies:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
@@ -881,6 +896,12 @@ packages:
       react: '>=16.8.0'
       react-dom: '>=16.8.0'
 
+  remotion@4.0.445:
+    resolution: {integrity: sha512-SiEueQVsc93G8BAC1U1Ein+9vAKU7/17AgyXmGCADWyywObnRSPC6j7uJmvEDtwsxGWycP3vDV4e+fNd+41rUw==}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
   require-from-string@2.0.2:
     resolution: {integrity: sha512-Xf0nWe6RseziFMu+Ap9biiUbmplq6S9/p+7w7YXP/JBHhrUDDUhwa+vANyubuqfZWTveU//DYVGsDG7RKL/vEw==}
     engines: {node: '>=0.10.0'}
@@ -1294,6 +1315,13 @@ snapshots:
   '@remotion/compositor-win32-x64-msvc@4.0.443':
     optional: true
 
+  '@remotion/fonts@4.0.445(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      remotion: 4.0.445(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+    transitivePeerDependencies:
+      - react
+      - react-dom
+
   '@remotion/licensing@4.0.443': {}
 
   '@remotion/media-parser@4.0.443': {}
@@ -1304,6 +1332,14 @@ snapshots:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
       remotion: 4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+
+  '@remotion/media@4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      mediabunny: 1.39.2
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+      remotion: 4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      zod: 4.3.6
 
   '@remotion/player@4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
@@ -1908,6 +1944,11 @@ snapshots:
       tslib: 2.8.1
 
   remotion@4.0.443(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
+    dependencies:
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+
+  remotion@4.0.445(react-dom@18.3.1(react@18.3.1))(react@18.3.1):
     dependencies:
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)

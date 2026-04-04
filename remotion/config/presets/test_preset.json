@@ -1,0 +1,45 @@
+{
+  "name": "poppins_sans",
+  "description": "Modern sans-serif typography - word by word animation",
+  "engine": "remotion",
+  "animation": {
+    "type": "word_by_word",
+    "entrance": "pop_in",
+    "animation_style": "ease_in_out",
+    "timing": "sync_to_speech",
+    "combine_tokens_ms": 300,
+    "words_per_group": 2,
+    "spring": {
+      "damping": 12,
+      "stiffness": 180,
+      "mass": 1
+    },
+    "stagger_ms": 50,
+    "duration_ms": 400,
+    "enabled": true
+  },
+  "style": {
+    "font_family": "Poppins",
+    "font_size": 13,
+    "font_weight": 600,
+    "text_color": "#FFFFFF",
+    "shadow_color": "#000000",
+    "shadow_opacity": 0.8,
+    "shadow_blur": 2,
+    "shadow_offset": 2,
+    "background": null,
+    "bg_color": null,
+    "bg_opacity": 0,
+    "padding_x": 0,
+    "padding_y": 0,
+    "border_radius": 0
+  },
+  "position": {
+    "anchor": "bottom_center",
+    "y_offset": 20,
+    "margin_percent": 5
+  },
+  "highlight": {
+    "enabled": false
+  }
+}

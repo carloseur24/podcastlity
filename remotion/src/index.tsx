@@ -1,4 +1,5 @@
-import { registerRoot, Composition, AbsoluteFill, Audio, OffthreadVideo, staticFile, getInputProps } from 'remotion';
+import { registerRoot, Composition, AbsoluteFill, Audio, staticFile, getInputProps } from 'remotion';
+import { Video } from '@remotion/media';
 import { KineticSubtitle } from './components/SubtitleLayer';
 import type { SubtitlePreset } from './components/SubtitleLayer';
 
@@ -11,39 +12,40 @@ interface MainCompositionProps {
   fps: number;
   width: number;
   height: number;
+  frameOffset?: number;
+  trimStartFrames?: number;
+  outputWidth?: number;
+  outputHeight?: number;
 }
 
 // Inner component that can use hooks
 const MainComposition: React.FC = () => {
   const inputProps = getInputProps<MainCompositionProps>();
   
-  const { videoSrc, audioSrc, captions, preset } = inputProps;
+  const { videoSrc, audioSrc, captions, preset, trimStartFrames, outputWidth, outputHeight } = inputProps;
   
-  // Use staticFile() to load video from public folder
   const videoFilename = videoSrc?.split('/').pop() || 'input_video.mp4';
   const videoSource = staticFile(videoFilename);
   
-  console.log('[Remotion] Video source:', videoSource);
-  console.log('[Remotion] Video filename:', videoFilename);
-  console.log('[Remotion] Captions count:', captions?.length || 0);
+  console.log('[Remotion] Video:', videoFilename, '| Trim:', trimStartFrames || 0, '| Captions:', captions?.length || 0);
+  console.log('[Remotion] Output size:', outputWidth, 'x', outputHeight);
   
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
-      {/* Video - Using OffthreadVideo for FFmpeg-based frame extraction */}
-      <OffthreadVideo
+      {/* Using @remotion/media Video - WebCodecs-based, FASTEST */}
+      <Video
         src={videoSource}
+        trimBefore={trimStartFrames || 0}
         style={{ width: '100%', height: '100%' }}
       />
       
-      {/* Audio (if provided) */}
-      {audioSrc && (
-        <Audio src={audioSrc} />
-      )}
+      {audioSrc && <Audio src={audioSrc} />}
       
-      {/* Kinetic Subtitles */}
       <KineticSubtitle
         captions={captions}
         preset={preset}
+        outputWidth={outputWidth}
+        outputHeight={outputHeight}
       />
     </AbsoluteFill>
   );
@@ -55,10 +57,16 @@ const getCompositionDuration = () => {
   return props.durationInFrames || 30 * 60;
 };
 
-// Export Composition - duration will be set dynamically
+// Export Composition - duration and dimensions from inputProps
 export const RemotionRoot = () => {
   const durationInFrames = getCompositionDuration();
   const props = getInputProps<MainCompositionProps>();
+  
+  // Use dynamic dimensions from inputProps, fallback to 1920x1080
+  const compositionWidth = props.width || 1920;
+  const compositionHeight = props.height || 1080;
+  
+  console.log('[Remotion] Composition dimensions:', compositionWidth, 'x', compositionHeight);
   
   return (
     <Composition
@@ -66,8 +74,8 @@ export const RemotionRoot = () => {
       component={MainComposition}
       durationInFrames={durationInFrames}
       fps={props.fps || 30}
-      width={props.width || 1920}
-      height={props.height || 1080}
+      width={compositionWidth}
+      height={compositionHeight}
     />
   );
 };

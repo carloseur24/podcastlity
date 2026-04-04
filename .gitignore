@@ -83,3 +83,12 @@ remotion/input_video.mp4
 remotion/build
 # Remotion test files
 remotion/test_*.json
+
+# Remotion media files
+remotion/assets/fonts/
+remotion/assets/videos/
+remotion/demos/*.png
+remotion/demos/*.jpg
+remotion/demos/*.jpeg
+remotion/demos/*.gif
+remotion/demos/*.mp4

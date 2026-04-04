@@ -1,147 +1,205 @@
 {
-  "presets": {
-    "kinetic_pop": {
-      "name": "Kinetic Pop-in",
-      "description": "Trending TikTok word-by-word pop animation with spring bounce",
-      "engine": "remotion",
-      "animation": {
-        "type": "word_by_word",
-        "entrance": "pop_in",
-        "timing": "sync_to_speech",
-        "combine_tokens_ms": 800,
-        "spring": {
-          "damping": 12,
-          "stiffness": 180,
-          "mass": 1
-        },
-        "stagger_ms": 50
+  "default": {
+    "name": "Default Subtitle Style",
+    "description": "Default subtitle preset - cannot be edited or deleted",
+    "read_only": true,
+    "is_default": true,
+    "type": "subtitle",
+    "engine": "remotion",
+    "animation": {
+      "type": "word_by_word",
+      "entrance": "pop_in",
+      "animation_style": "ease_in_out",
+      "timing": "sync_to_speech",
+      "combine_tokens_ms": 300,
+      "words_per_group": 2,
+      "spring": {
+        "damping": 12,
+        "stiffness": 180,
+        "mass": 1
       },
-      "style": {
-        "font_family": "Inter",
-        "font_size": 36,
-        "font_weight": 700,
-        "text_color": "#FFFFFF",
-        "stroke_color": "#000000",
-        "stroke_width": 2,
-        "background": "rounded_box",
-        "bg_color": "#000000",
-        "bg_opacity": 0.7,
-        "padding_x": 24,
-        "padding_y": 16,
-        "border_radius": 12
-      },
-      "position": {
-        "anchor": "bottom_center",
-        "y_offset": 120
-      },
-      "highlight": {
-        "enabled": true,
-        "color": "#FFD700",
-        "words": ["important", "key", "main", "essential", "critical"]
-      }
+      "stagger_ms": 50,
+      "duration_ms": 400,
+      "enabled": true
     },
-    "kinetic_slide": {
-      "name": "Kinetic Slide",
-      "description": "Words slide in from left with spring animation",
-      "engine": "remotion",
-      "animation": {
-        "type": "word_by_word",
-        "entrance": "slide_in_left",
-        "timing": "sync_to_speech",
-        "combine_tokens_ms": 1000,
-        "spring": {
-          "damping": 15,
-          "stiffness": 150
-        },
-        "stagger_ms": 80
-      },
-      "style": {
-        "font_family": "Poppins",
-        "font_size": 32,
-        "font_weight": 600,
-        "text_color": "#FFFFFF",
-        "stroke_color": "#000000",
-        "stroke_width": 2,
-        "background": "rounded_box",
-        "bg_color": "#667EEA",
-        "bg_opacity": 0.8,
-        "padding_x": 20,
-        "padding_y": 14,
-        "border_radius": 8
-      },
-      "position": {
-        "anchor": "bottom_center",
-        "y_offset": 100
-      },
-      "highlight": {
-        "enabled": false
-      }
+    "style": {
+      "font_family": "Poppins",
+      "font_size": 13,
+      "font_weight": 600,
+      "text_color": "#FFFFFF",
+      "shadow_color": "#000000",
+      "shadow_opacity": 0.8,
+      "shadow_blur": 2,
+      "shadow_offset": 2,
+      "background": null,
+      "bg_color": null,
+      "bg_opacity": 0,
+      "padding_x": 0,
+      "padding_y": 0,
+      "border_radius": 0
     },
-    "minimal_fade": {
-      "name": "Minimal Fade",
-      "description": "Simple clean fade-in for full sentence at a time",
-      "engine": "remotion",
-      "animation": {
-        "type": "full_line",
-        "entrance": "fade",
-        "duration_ms": 300,
-        "easing": "ease_out"
-      },
-      "style": {
-        "font_family": "Helvetica",
-        "font_size": 28,
-        "font_weight": 400,
-        "text_color": "#FFFFFF",
-        "stroke_color": null,
-        "stroke_width": 0,
-        "background": null,
-        "bg_color": null,
-        "bg_opacity": 0
-      },
-      "position": {
-        "anchor": "bottom_center",
-        "y_offset": 60
-      },
-      "highlight": {
-        "enabled": false
-      }
+    "position": {
+      "anchor": "bottom_center",
+      "y_offset": 20,
+      "margin_percent": 5
     },
-    "cinematic": {
-      "name": "Cinematic",
-      "description": "Professional look with letterbox and elegant typography",
-      "engine": "remotion",
-      "animation": {
-        "type": "word_by_word",
-        "entrance": "typewriter",
-        "timing": "sync_to_speech",
-        "combine_tokens_ms": 1200,
-        "spring": {
-          "damping": 20,
-          "stiffness": 100
-        },
-        "stagger_ms": 30
+    "highlight": {
+      "enabled": false
+    }
+  },
+  "kinetic_pop": {
+    "name": "Kinetic Pop-in",
+    "description": "Trending TikTok word-by-word pop animation with spring bounce",
+    "read_only": false,
+    "is_default": false,
+    "type": "subtitle",
+    "engine": "remotion",
+    "animation": {
+      "type": "word_by_word",
+      "entrance": "pop_in",
+      "timing": "sync_to_speech",
+      "combine_tokens_ms": 800,
+      "spring": {
+        "damping": 12,
+        "stiffness": 180,
+        "mass": 1
       },
-      "style": {
-        "font_family": "Georgia",
-        "font_size": 30,
-        "font_weight": 400,
-        "text_color": "#F5F5DC",
-        "stroke_color": "#000000",
-        "stroke_width": 1,
-        "background": "letterbox",
-        "bg_color": "#000000",
-        "bg_opacity": 0.9,
-        "padding_x": 40,
-        "padding_y": 20,
-        "border_radius": 0
+      "stagger_ms": 50
+    },
+    "style": {
+      "font_family": "Inter",
+      "font_size": 36,
+      "font_weight": 700,
+      "text_color": "#FFFFFF",
+      "stroke_color": "#000000",
+      "stroke_width": 2,
+      "background": "rounded_box",
+      "bg_color": "#000000",
+      "bg_opacity": 0.7,
+      "padding_x": 24,
+      "padding_y": 16,
+      "border_radius": 12
+    },
+    "position": {
+      "anchor": "bottom_center",
+      "y_offset": 120
+    },
+    "highlight": {
+      "enabled": true,
+      "color": "#FFD700",
+      "words": ["important", "key", "main", "essential", "critical"]
+    }
+  },
+  "kinetic_slide": {
+    "name": "Kinetic Slide",
+    "description": "Words slide in from left with spring animation",
+    "read_only": false,
+    "is_default": false,
+    "type": "subtitle",
+    "engine": "remotion",
+    "animation": {
+      "type": "word_by_word",
+      "entrance": "slide_in_left",
+      "timing": "sync_to_speech",
+      "combine_tokens_ms": 1000,
+      "spring": {
+        "damping": 15,
+        "stiffness": 150
       },
-      "position": {
-        "anchor": "bottom_center",
-        "y_offset": 80
+      "stagger_ms": 80
+    },
+    "style": {
+      "font_family": "Poppins",
+      "font_size": 32,
+      "font_weight": 600,
+      "text_color": "#FFFFFF",
+      "stroke_color": "#000000",
+      "stroke_width": 2,
+      "background": "rounded_box",
+      "bg_color": "#667EEA",
+      "bg_opacity": 0.8,
+      "padding_x": 20,
+      "padding_y": 14,
+      "border_radius": 8
+    },
+    "position": {
+      "anchor": "bottom_center",
+      "y_offset": 100
+    },
+    "highlight": {
+      "enabled": false
+    }
+  },
+  "minimal_fade": {
+    "name": "Minimal Fade",
+    "description": "Simple clean fade-in for full sentence at a time",
+    "read_only": false,
+    "is_default": false,
+    "type": "subtitle",
+    "engine": "remotion",
+    "animation": {
+      "type": "full_line",
+      "entrance": "fade",
+      "duration_ms": 300,
+      "easing": "ease_out"
+    },
+    "style": {
+      "font_family": "Helvetica",
+      "font_size": 28,
+      "font_weight": 400,
+      "text_color": "#FFFFFF",
+      "stroke_color": null,
+      "stroke_width": 0,
+      "background": null,
+      "bg_color": null,
+      "bg_opacity": 0
+    },
+    "position": {
+      "anchor": "bottom_center",
+      "y_offset": 60
+    },
+    "highlight": {
+      "enabled": false
+    }
+  },
+  "cinematic": {
+    "name": "Cinematic",
+    "description": "Professional look with letterbox and elegant typography",
+    "read_only": false,
+    "is_default": false,
+    "type": "subtitle",
+    "engine": "remotion",
+    "animation": {
+      "type": "word_by_word",
+      "entrance": "typewriter",
+      "timing": "sync_to_speech",
+      "combine_tokens_ms": 1200,
+      "spring": {
+        "damping": 20,
+        "stiffness": 100
       },
-      "highlight": {
-        "enabled": false
-      }
+      "stagger_ms": 30
+    },
+    "style": {
+      "font_family": "Georgia",
+      "font_size": 30,
+      "font_weight": 400,
+      "text_color": "#F5F5DC",
+      "stroke_color": "#000000",
+      "stroke_width": 1,
+      "background": "letterbox",
+      "bg_color": "#000000",
+      "bg_opacity": 0.9,
+      "padding_x": 40,
+      "padding_y": 20,
+      "border_radius": 0
+    },
+    "position": {
+      "anchor": "bottom_center",
+      "y_offset": 80
+    },
+    "highlight": {
+      "enabled": false
     }
   },
   "profiles": {

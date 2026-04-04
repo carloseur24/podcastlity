@@ -1,0 +1,61 @@
+{
+  "default": {
+    "name": "Default",
+    "description": "Default preset - cannot be edited or deleted",
+    "read_only": true,
+    "is_default": true,
+    "type": "color",
+    "presets": {
+      "balanced": {
+        "name": "Balanced",
+        "description": "Standard balanced look",
+        "analysis": "auto_histogram",
+        "adjustments": {
+          "brightness": "auto",
+          "contrast": "auto",
+          "saturation": "auto"
+        }
+      },
+      "cold": {
+        "name": "Cold",
+        "description": "Cool blue tones",
+        "analysis": "auto_histogram",
+        "temperature": -15,
+        "adjustments": {
+          "brightness": "auto",
+          "contrast": "auto",
+          "saturation": "auto"
+        }
+      },
+      "warm": {
+        "name": "Warm",
+        "description": "Warm orange/yellow tones",
+        "analysis": "auto_histogram",
+        "temperature": 15,
+        "adjustments": {
+          "brightness": "auto",
+          "contrast": "auto",
+          "saturation": "auto"
+        }
+      }
+    },
+    "scales": {
+      "much_warmer": {
+        "temperature": 30,
+        "saturation": 1.1
+      },
+      "warmer": {
+        "temperature": 15,
+        "saturation": 1.05
+      },
+      "cooler": {
+        "temperature": -15,
+        "saturation": 1.05
+      },
+      "much_cooler": {
+        "temperature": -30,
+        "saturation": 1.1
+      }
+    }
+  }
+}

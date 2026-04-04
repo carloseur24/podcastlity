@@ -4,19 +4,21 @@
   "description": "Remotion components for kinetic subtitle animations",
   "main": "index.tsx",
   "dependencies": {
-    "@remotion/cli": "^4.0.0",
-    "@remotion/captions": "^4.0.0",
-    "@remotion/renderer": "^4.0.0",
-    "remotion": "^4.0.0",
+    "@remotion/captions": "4.0.443",
+    "@remotion/cli": "4.0.443",
+    "@remotion/fonts": "^4.0.445",
+    "@remotion/media": "4.0.443",
+    "@remotion/renderer": "4.0.443",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "remotion": "4.0.443"
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
     "typescript": "^5.0.0"
   },
   "scripts": {
-    "build": "remotion render index.tsx Main output.mp4",
+    "build": "remotion bundle index.tsx Main --out-dir build",
     "preview": "remotion studio",
     "render": "remotion render index.tsx Main"
   }
