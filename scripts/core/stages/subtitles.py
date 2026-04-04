@@ -84,7 +84,10 @@ def run(session_id: str, workspace: str) -> dict:
     print(f"[subtitles] Input video codec: {video_codec}")
 
     remotion_dir = workspace_path / "remotion"
-    input_video = remotion_dir / "input_video.mp4"
+    # Copy video to public folder for Remotion bundling
+    public_dir = remotion_dir / "public"
+    public_dir.mkdir(parents=True, exist_ok=True)
+    input_video = public_dir / "input_video.mp4"
 
     if video_codec != "h264":
         print(f"[subtitles] Transcoding to H.264 for Remotion compatibility...")

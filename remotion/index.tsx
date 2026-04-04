@@ -17,11 +17,14 @@ const MainComposition: React.FC<MainCompositionProps> = ({
   captions,
   preset,
 }) => {
-  // Use staticFile() to properly serve local video files
-  // videoSrc should be a relative path like "public/video.mp4"
-  const videoSource = videoSrc.startsWith('/') || videoSrc.startsWith('http') 
-    ? videoSrc 
-    : staticFile(videoSrc);
+  // Use staticFile() to load video from public folder
+  // This works because the video is in the public/ folder and gets bundled
+  // The video filename is extracted from the absolute path
+  const videoFilename = videoSrc.split('/').pop() || 'input_video.mp4';
+  const videoSource = staticFile(videoFilename);
+  
+  console.log('[Remotion] Video source:', videoSource);
+  console.log('[Remotion] Video filename:', videoFilename);
   
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>

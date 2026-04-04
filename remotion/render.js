@@ -3,8 +3,8 @@
 /**
  * Remotion Render Script
  * 
- * Renders video with kinetic subtitles using Remotion CLI.
- * Uses --public-dir for local video serving.
+ * Renders video with kinetic subtitles using Remotion programmatic API.
+ * Uses chromiumOptions.disableWebSecurity to allow loading local video files.
  * 
  * Usage:
  *   node render.js <input_video> <output_video> <captions_json> <preset_json> <fps> <duration> <width> <height>
@@ -15,7 +15,6 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
 
 async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps, duration, width, height) {
   console.log('[remotion] Starting render...');
@@ -43,81 +42,72 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
   console.log('[remotion] Captions loaded:', captions.length);
   console.log('[remotion] Frame count:', frameCount);
   
-  // Create public directory for static files
-  const publicDir = path.join(__dirname, 'public');
-  if (!fs.existsSync(publicDir)) {
-    fs.mkdirSync(publicDir, { recursive: true });
-  }
+  // Import Remotion modules
+  const { renderMedia, selectComposition } = require('@remotion/renderer');
   
-  // Copy video to public folder using absolute path
-  const publicVideoPath = path.join(publicDir, 'input_video.mp4');
-  if (!fs.existsSync(publicVideoPath) || fs.statSync(inputPathAbs).size !== fs.statSync(publicVideoPath).size) {
-    fs.copyFileSync(inputPathAbs, publicVideoPath);
-    console.log('[remotion] Copied video to public folder:', publicVideoPath);
-  }
+  // Use absolute file path - with disableWebSecurity, browser can access local files
+  const videoSrc = inputPathAbs;
   
-  console.log('[remotion] Public directory:', publicDir);
-  console.log('[remotion] Video file:', publicVideoPath);
-  console.log('[remotion] Video exists:', fs.existsSync(publicVideoPath));
+  const inputProps = {
+    videoSrc: videoSrc,
+    captions: captions,
+    preset: preset,
+    durationInFrames: frameCount,
+    fps: fps,
+    width: parseInt(width),
+    height: parseInt(height)
+  };
+  
+  console.log('[remotion] Input props videoSrc:', inputProps.videoSrc);
   
   try {
-    // Create input props - use relative path for public-dir mode
-    const inputProps = {
-      videoSrc: 'input_video.mp4',  // Relative path works with --public-dir
-      captions: captions,
-      preset: preset,
-      durationInFrames: frameCount,
-      fps: fps,
-      width: parseInt(width),
-      height: parseInt(height)
-    };
+    // Bundle path - use the bundled output
+    const bundlePath = path.join(__dirname, 'build');
     
-    const inputPropsPath = path.join(__dirname, 'input-props.json');
-    fs.writeFileSync(inputPropsPath, JSON.stringify(inputProps));
+    console.log('[remotion] Bundle path:', bundlePath);
     
-    // Output path
-    console.log('[remotion] Output path:', outputPathAbs);
+    // Select the composition
+    const composition = await selectComposition({
+      serveUrl: bundlePath,
+      id: 'Main',
+      inputProps: inputProps,
+    });
     
-    // Run Remotion render with public directory for static files
-    const cmd = [
-      'npx', 'remotion', 'render',
-      'index.tsx',
-      'Main',
-      outputPathAbs,
-      '--props', inputPropsPath,
-      '--codec', 'h264',
-      '--crf', '23',
-      '--audio-codec', 'aac',
-      '--public-dir', publicDir,
-      '--offline'
-    ];
+    console.log('[remotion] Composition selected:', composition.id, composition.durationInFrames, 'frames');
     
-    console.log('[remotion] Running:', cmd.join(' '));
+    console.log('[remotion] Rendering with disableWebSecurity...');
     
-    // Run and capture output
-    try {
-      const result = execSync(cmd.join(' '), {
-        cwd: __dirname,
-        encoding: 'utf8',
-        stdio: ['pipe', 'pipe', 'pipe']
-      });
-      console.log('[remotion] Remotion output (first 2000 chars):', result.substring(0, 2000));
-    } catch (error) {
-      console.log('[remotion] Remotion stdout:', error.stdout ? error.stdout.substring(0, 2000) : 'None');
-      console.log('[remotion] Remotion stderr:', error.stderr ? error.stderr.substring(0, 2000) : 'None');
-      throw error;
-    }
+    // Render the media with security disabled
+    await renderMedia({
+      composition,
+      serveUrl: bundlePath,
+      outputLocation: outputPathAbs,
+      inputProps,
+      codec: 'h264',
+      timeoutInMilliseconds: 300000, // 5 minute timeout for video loading
+      // Key: disable web security to allow local file access
+      chromiumOptions: {
+        disableWebSecurity: true,
+        allowFileAccessFromFiles: true,
+        noSandbox: true,
+        disableDevShmUsage: true,
+      },
+    });
+    
+    console.log('[remotion] Render complete!');
     
     // Check if output file exists
     if (fs.existsSync(outputPathAbs)) {
       const stats = fs.statSync(outputPathAbs);
-      console.log('[remotion] Render complete - file size:', stats.size, 'bytes');
+      console.log('[remotion] Output file size:', stats.size, 'bytes');
     } else {
       console.log('[remotion] WARNING: Output file not found at:', outputPathAbs);
     }
     
   } catch (error) {
     console.error('[remotion] Render failed:', error.message);
+    console.error('[remotion] Stack:', error.stack);
+    throw error;
   }
 }
 
