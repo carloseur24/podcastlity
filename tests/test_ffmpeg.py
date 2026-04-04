@@ -83,7 +83,7 @@ class TestExtractAudio:
         assert "-ac" in call_args
         assert "1" in call_args
         assert "-ar" in call_args
-        assert "16000" in call_args
+        assert "48000" in call_args  # Default is now 48kHz for better quality
 
     @patch("scripts.utils.ffmpeg.run_ffmpeg")
     def test_extract_audio_stereo(self, mock_run):

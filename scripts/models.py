@@ -7,7 +7,9 @@ from pydantic import BaseModel, Field
 class Session(BaseModel):
     session_id: str
     topic: str
-    platform_targets: list[str] = Field(default_factory=lambda: ["youtube_lf", "shorts"])
+    platform_targets: list[str] = Field(
+        default_factory=lambda: ["youtube_lf", "shorts"]
+    )
     profile: Optional[Literal["longform", "shorts", "both"]] = "longform"
     goal: str = "educativo"
     tone: str = "directo"
@@ -18,10 +20,20 @@ class Session(BaseModel):
     sync_offset_seconds: float = 0.0
     sync_method: Literal["manual", "auto"] = "manual"
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-    status: Optional[Literal[
-        "created", "ingested", "proxied", "transcribed", "analyzed",
-        "cutmapped", "assembled", "exported", "done"
-    ]] = "created"
+    status: Optional[
+        Literal[
+            "created",
+            "ingested",
+            "proxied",
+            "voice_extracted",
+            "transcribed",
+            "analyzed",
+            "cutmapped",
+            "assembled",
+            "exported",
+            "done",
+        ]
+    ] = "created"
 
 
 class Word(BaseModel):

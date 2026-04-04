@@ -15,7 +15,11 @@
     "pip_position": "bottom_right",
     "pip_size_ratio": 0.3,
     "aspect_ratio": "9:16",
-    "resolution": "1080x1920"
+    "resolution": "1080x1920",
+    "voice_extract": {
+      "min_speech_duration_ms": 250,
+      "min_silence_duration_ms": 500
+    }
   },
   "longform": {
     "silence_threshold_db": -42,
@@ -33,6 +37,10 @@
     "pip_position": "bottom_right",
     "pip_size_ratio": 0.167,
     "aspect_ratio": "16:9",
-    "resolution": "1920x1080"
+    "resolution": "1920x1080",
+    "voice_extract": {
+      "min_speech_duration_ms": 2500,
+      "min_silence_duration_ms": 2500
+    }
   }
 }
