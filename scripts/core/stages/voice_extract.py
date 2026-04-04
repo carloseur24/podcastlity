@@ -98,7 +98,7 @@ def _apply_arnndn(input_wav: str, output_wav: str, model_path: str, mix: float) 
 
 
 def _apply_podcast_chain(
-    input_wav: str, output_wav: str, profile: str = "longform"
+    input_wav: str, output_wav: str, profile: str = "default"
 ) -> bool:
     """
     Apply professional podcast audio chain with custom EQ settings:
@@ -108,23 +108,13 @@ def _apply_podcast_chain(
     3. Compressor: threshold -24dB, ratio 3.5:1, attack 5ms, release 100ms
     4. High shelf at 10kHz (+3dB) - add "air" and crispness
     5. Limiter: ceiling -1.0dB
-    6. loudnorm: profile-specific LUFS
-
-    Profile-specific settings:
-    - longform: -16 LUFS, -1.5 dBTP (Spotify/Apple Podcasts standard)
-    - shorts: -14 LUFS, -1.0 dBTP (TikTok/Instagram standard)
+    6. loudnorm: -16 LUFS, -1.5 dBTP (Spotify/Apple Podcasts standard)
     """
     ffmpeg_path = "/usr/bin/ffmpeg"
 
-    # Profile-specific loudness targets
-    if profile == "shorts":
-        # TikTok/Instagram: -14 LUFS, -1.0 dBTP
-        target_lufs = "-14"
-        true_peak = "-1.0"
-    else:
-        # Podcast: -16 LUFS, -1.5 dBTP
-        target_lufs = "-16"
-        true_peak = "-1.5"
+    # Default loudness targets: -16 LUFS, -1.5 dBTP (podcast standard)
+    target_lufs = "-16"
+    true_peak = "-1.5"
 
     # Full podcast quality chain with custom EQ settings
     # Based on frequency analysis: HPF @ 80Hz, Bell cut @ 450Hz, Compressor, Air shelf @ 10kHz
@@ -440,7 +430,7 @@ def run(session_id: str, workspace: str) -> dict:
         raise StageError("voice_extract", f"Session '{session_id}' not found")
 
     # Get profile for loudness settings
-    profile = session.profile or "longform"
+    profile = session.profile or "default"
     print(f"[voice_extract] Using profile: {profile} for loudness settings")
 
     # Get VAD settings from config
@@ -655,9 +645,7 @@ def process_segment(
         # Step 4: Apply final podcast chain for professional quality
         temp_voice = output_path.replace(".wav", "_voice.wav")
         wavfile.write(str(temp_voice), rate, voice_audio)
-        _apply_podcast_chain(
-            str(temp_voice), output_path, "longform"
-        )  # Default to longform
+        _apply_podcast_chain(str(temp_voice), output_path, "default")
 
         # Cleanup
         Path(temp_denoised).unlink(missing_ok=True)
