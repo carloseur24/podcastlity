@@ -97,22 +97,38 @@ def _apply_arnndn(input_wav: str, output_wav: str, model_path: str, mix: float) 
         return False
 
 
-def _apply_podcast_chain(input_wav: str, output_wav: str) -> bool:
+def _apply_podcast_chain(
+    input_wav: str, output_wav: str, profile: str = "longform"
+) -> bool:
     """
     Apply professional podcast audio chain:
     1. highpass 80Hz - remove low rumble
     2. equalizer 2-4kHz +3dB - vocal sheen/crispness
     3. compressor - consistent volume
-    4. loudnorm -16 LUFS (2-pass) - podcast standard
+    4. loudnorm - profile-specific LUFS (TikTok: -14, Podcast: -16)
+
+    Profile-specific settings:
+    - longform: -16 LUFS, -1.5 dBTP (Spotify/Apple Podcasts standard)
+    - shorts: -14 LUFS, -1.0 dBTP (TikTok/Instagram standard)
     """
     ffmpeg_path = "/usr/bin/ffmpeg"
+
+    # Profile-specific loudness targets
+    if profile == "shorts":
+        # TikTok/Instagram: -14 LUFS, -1.0 dBTP
+        target_lufs = "-14"
+        true_peak = "-1.0"
+    else:
+        # Podcast: -16 LUFS, -1.5 dBTP
+        target_lufs = "-16"
+        true_peak = "-1.5"
 
     # Full podcast quality chain
     filter_chain = (
         "highpass=f=80,"  # Remove low rumble
         "equalizer=f=3000:g=3:w=2000,"  # Vocal sheen 2-4kHz +3dB
         "acompressor=threshold=-20dB:ratio=4:attack=5:release=50,"  # Voice compression
-        "loudnorm=I=-16:TP=-1.5:LRA=11"  # Podcast loudness standard
+        f"loudnorm=I={target_lufs}:TP={true_peak}:LRA=11"  # Profile-specific loudness
     )
 
     cmd = [
@@ -417,6 +433,10 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("voice_extract", f"Session '{session_id}' not found")
 
+    # Get profile for loudness settings
+    profile = session.profile or "longform"
+    print(f"[voice_extract] Using profile: {profile} for loudness settings")
+
     # Get VAD settings from config
     vad_settings = config.get_voice_extract_settings()
     min_speech_ms = vad_settings.get("min_speech_duration_ms", 2500)
@@ -464,7 +484,7 @@ def run(session_id: str, workspace: str) -> dict:
                     print(
                         "[voice_extract] All noise reduction failed, applying podcast chain..."
                     )
-                    _apply_podcast_chain(str(input_audio), str(denoised_audio))
+                    _apply_podcast_chain(str(input_audio), str(denoised_audio), profile)
 
         # Step 2: Load Silero VAD model
         print("[voice_extract] Loading Silero VAD model...")
@@ -513,7 +533,9 @@ def run(session_id: str, workspace: str) -> dict:
         print(
             "[voice_extract] Applying podcast chain: highpass + EQ + compressor + loudnorm..."
         )
-        final_success = _apply_podcast_chain(str(voice_only_wav), str(output_audio))
+        final_success = _apply_podcast_chain(
+            str(voice_only_wav), str(output_audio), profile
+        )
 
         if not final_success:
             # If final processing fails, use the raw voice audio
@@ -621,7 +643,9 @@ def process_segment(
         # Step 4: Apply final podcast chain for professional quality
         temp_voice = output_path.replace(".wav", "_voice.wav")
         wavfile.write(str(temp_voice), rate, voice_audio)
-        _apply_podcast_chain(str(temp_voice), output_path)
+        _apply_podcast_chain(
+            str(temp_voice), output_path, "longform"
+        )  # Default to longform
 
         # Cleanup
         Path(temp_denoised).unlink(missing_ok=True)
