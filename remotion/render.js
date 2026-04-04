@@ -25,7 +25,7 @@ async function waitForServer(port, maxAttempts = 10) {
   for (let i = 0; i < maxAttempts; i++) {
     try {
       await new Promise((resolve, reject) => {
-        const req = http.get(`http://localhost:${port}/video.mp4`, (res) => {
+        const req = http.get(`http://127.0.0.1:${port}/video.mp4`, (res) => {
           resolve(res.statusCode);
         });
         req.on('error', reject);
@@ -104,7 +104,7 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
   
   // Wait for server to be ready
   await waitForServer(PORT);
-  const videoUrl = `http://localhost:${PORT}/video.mp4`;
+  const videoUrl = `http://127.0.0.1:${PORT}/video.mp4`;
   console.log('[remotion] Video URL:', videoUrl);
   
   try {
@@ -135,7 +135,7 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
       '--codec', 'h264',
       '--crf', '23',
       '--audio-codec', 'aac',
-      '--serve-url', `http://localhost:${PORT}`
+      '--serve-url', `http://127.0.0.1:${PORT}`
     ];
     
     console.log('[remotion] Running:', cmd.join(' '));
