@@ -110,7 +110,7 @@ def _apply_podcast_chain(input_wav: str, output_wav: str) -> bool:
     # Full podcast quality chain
     filter_chain = (
         "highpass=f=80,"  # Remove low rumble
-        "equalizer=f=3000:t=q:width_type=s:width=2000:g=3,"  # Vocal sheen 2-4kHz +3dB
+        "equalizer=f=3000:g=3:w=2000,"  # Vocal sheen 2-4kHz +3dB
         "acompressor=threshold=-20dB:ratio=4:attack=5:release=50,"  # Voice compression
         "loudnorm=I=-16:TP=-1.5:LRA=11"  # Podcast loudness standard
     )
