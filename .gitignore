@@ -27,68 +27,84 @@ htmlcov/
 .DS_Store
 Thumbs.db
 
-# Generated media (pipeline output - per-session)
-recordings/*/
-proxies/*/
-audio/*/
-transcripts/*/
-analysis/*/
-cutmaps/*/
-exports/*/
-thumbnails/*/
-briefs/*/
-metadata/*/
+# =====================================================
+# CONTENT-OS OUTPUT - All generated files (per session)
+# =====================================================
 
-# Keep directory structure with .gitkeep
-!recordings/.gitkeep
-!proxies/.gitkeep
-!audio/.gitkeep
-!transcripts/.gitkeep
-!analysis/.gitkeep
-!cutmaps/.gitkeep
-!exports/.gitkeep
-!thumbnails/.gitkeep
-!briefs/.gitkeep
-!metadata/.gitkeep
+# Session recordings (input files from camera/screen)
+# EXCLUDE: raw footage (*.mp4)
+# KEEP: session metadata (session.json)
+data/recordings/*/
+!data/recordings/*/session.json
 
-# Test footage (large binary files)
-footage/*.mp4
-footage/*.mov
-!footage/.gitkeep
+# All pipeline output
+output/*/
 
-# Config with secrets
-config/settings.json
+# Keep directory structure with .gitkeep (empty dirs only)
+!data/recordings/.gitkeep
+!data/footage/.gitkeep
+!output/proxies/.gitkeep
+!output/audio/.gitkeep
+!output/transcripts/.gitkeep
+!output/analysis/.gitkeep
+!output/cutmaps/.gitkeep
+!output/exports/.gitkeep
+!output/thumbnails/.gitkeep
+!output/briefs/.gitkeep
+
+# =====================================================
+# CONFIG - Keep these (not results)
+# =====================================================
+
+# Config files - KEEP these (default configs)
+config/*.json
 !config/settings.example.json
+!config/filler_words_es.txt
+
+# Remotion presets - KEEP these (not results)
+remotion/config/presets/*.json
+!remotion/config/presets/test_preset.json
+
+# =====================================================
+# CUSTOM EXTENSION - Results marked with this extension
+# are excluded, keeping default configs readable
+# =====================================================
+*.content-os.json
+
+# =====================================================
+# TEST FOOTAGE - Large binary files
+# =====================================================
+data/footage/*.mp4
+data/footage/*.mov
+!data/footage/.gitkeep
+
+# =====================================================
+# NODE / JS
+# =====================================================
+node_modules/
+vendor/
+
+# Remotion build artifacts
+remotion/build/
+remotion/bin/
+remotion/public/
+remotion/static/
+
+# Remotion test files
+remotion/test_*.json
+remotion/input-props.json
+remotion/input_video.mp4
+
+# =====================================================
+# TEMP / DEBUG
+# =====================================================
+temp/
+*.wav
+*.gif
 
 # Workspace demo artifacts
 workspace_demo/*/
 !workspace_demo/.gitkeep
 
-node_modules/
-vendor/
-
-# Temp study files
-temp/
-
-# Remotion runtime artifacts
-remotion/bin/
-remotion/public/
-remotion/static/
-remotion/input-props.json
-
 # OpenCode CLI config
 session-mvp.json
-remotion/input_video.mp4
-
-remotion/build
-# Remotion test files
-remotion/test_*.json
-
-# Remotion media files
-remotion/assets/fonts/
-remotion/assets/videos/
-remotion/demos/*.png
-remotion/demos/*.jpg
-remotion/demos/*.jpeg
-remotion/demos/*.gif
-remotion/demos/*.mp4
