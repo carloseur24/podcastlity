@@ -63,7 +63,7 @@ def print_session_info(session) -> None:
 
     table.add_row("Sesión:", f"[bold]{session.session_id}[/bold]")
     table.add_row("Tema:", session.topic)
-    table.add_row("Perfil:", session.profile or "longform")
+    table.add_row("Perfil:", session.profile or "default")
     table.add_row("Estado:", f"[yellow]{session.status}[/yellow]")
 
     console.print(
@@ -154,19 +154,8 @@ def prompt_duration(default: float = 10.0, max_retries: int = 3) -> float:
 
 
 def prompt_profile() -> str:
-    console.print("\n[bold]Perfil de contenido:[/bold]")
-    console.print("  1. [cyan]Longform[/cyan] (16:9 YouTube)")
-    console.print("  2. [cyan]Shorts[/cyan] (9:16 vertical)")
-    console.print("  3. [cyan]Ambos[/cyan]")
-
-    choice = Prompt.ask(
-        "\n[bold cyan]Selecciona[/bold cyan]",
-        choices=["1", "2", "3"],
-        default="1",
-    )
-
-    profiles = {"1": "longform", "2": "shorts", "3": "both"}
-    return profiles[choice]
+    # Simplified - single "default" profile for all content
+    return "default"
 
 
 def prompt_goal() -> str:
