@@ -1,11 +1,7 @@
 from rich.console import Console
 from rich.panel import Panel
-from rich.prompt import Prompt, Confirm
+from rich.prompt import Confirm, Prompt
 from rich.table import Table
-from rich.text import Text
-from typing import Optional, Callable
-import sys
-
 
 console = Console()
 
@@ -66,9 +62,7 @@ def print_session_info(session) -> None:
     table.add_row("Perfil:", session.profile or "default")
     table.add_row("Estado:", f"[yellow]{session.status}[/yellow]")
 
-    console.print(
-        Panel(table, title="[bold]Info de Sesión[/bold]", border_style="blue")
-    )
+    console.print(Panel(table, title="[bold]Info de Sesión[/bold]", border_style="blue"))
 
 
 def print_stage_status(stages: list[tuple[str, str]]) -> None:
@@ -90,9 +84,7 @@ def print_stage_status(stages: list[tuple[str, str]]) -> None:
         style = "white" if status != "current" else "bold cyan"
         table.add_row(icon, f"[{style}]{name}[/{style}]", status)
 
-    console.print(
-        Panel(table, title="[bold]Pipeline Stages[/bold]", border_style="cyan")
-    )
+    console.print(Panel(table, title="[bold]Pipeline Stages[/bold]", border_style="cyan"))
 
 
 def prompt_session_id(default: str = "", max_retries: int = 3) -> str:
@@ -146,7 +138,7 @@ def prompt_duration(default: float = 10.0, max_retries: int = 3) -> float:
             return float(result.value)
 
         print_error(result.error or "Validación fallida")
-        console.print(f"[dim]Ejemplo: 0.5 (30 segundos), 1.5 (90 segundos)[/dim]")
+        console.print("[dim]Ejemplo: 0.5 (30 segundos), 1.5 (90 segundos)[/dim]")
         console.print(f"[dim]Intento {attempt + 1}/{max_retries}[/dim]")
 
     print_warning(f"Usando valor por defecto: {default} minutos")
@@ -204,7 +196,7 @@ def print_file_picker_menu(
 ) -> None:
     if mode == "auto":
         panel = Panel(
-            f"[bold yellow]Archivos encontrados en:[/bold yellow]\n[current_path]",
+            "[bold yellow]Archivos encontrados en:[/bold yellow]\n[current_path]",
             title="[bold]Auto-detectar[/bold]",
             border_style="green",
         )
@@ -315,19 +307,11 @@ def print_settings_menu(current_settings: dict) -> None:
     table.add_column(width=30)
     table.add_column()
 
-    table.add_row(
-        "[cyan]Grabaciones:[/cyan]", current_settings.get("recordings_mount", "")
-    )
-    table.add_row(
-        "[cyan]Modelo Whisper:[/cyan]", current_settings.get("whisper_model", "")
-    )
-    table.add_row(
-        "[cyan]Resolución proxy:[/cyan]", current_settings.get("proxy_resolution", "")
-    )
+    table.add_row("[cyan]Grabaciones:[/cyan]", current_settings.get("recordings_mount", ""))
+    table.add_row("[cyan]Modelo Whisper:[/cyan]", current_settings.get("whisper_model", ""))
+    table.add_row("[cyan]Resolución proxy:[/cyan]", current_settings.get("proxy_resolution", ""))
 
-    console.print(
-        Panel(table, title="[bold]Configuración Actual[/bold]", border_style="cyan")
-    )
+    console.print(Panel(table, title="[bold]Configuración Actual[/bold]", border_style="cyan"))
 
 
 def prompt_setting_change() -> str:
