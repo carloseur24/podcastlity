@@ -68,3 +68,13 @@ vendor/
 
 # Temp study files
 temp/
+
+# Remotion runtime artifacts
+remotion/bin/
+remotion/public/
+remotion/static/
+remotion/input-props.json
+
+# OpenCode CLI config
+session-mvp.json
+remotion/input_video.mp4
