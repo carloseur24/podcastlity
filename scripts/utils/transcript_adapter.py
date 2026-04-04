@@ -114,6 +114,40 @@ def convert_to_remotion_captions_simple(transcript: list[dict]) -> list[dict]:
     return captions
 
 
+def convert_to_srt(transcript: list[dict]) -> str:
+    """
+    Convert pipeline transcript to SRT format for FFmpeg.
+
+    SRT format:
+    1
+    00:00:15,580 --> 00:00:21,700
+    We're at the carnival...
+
+    """
+    srt_lines = []
+
+    for i, segment in enumerate(transcript, 1):
+        start_time = _format_srt_time(segment.get("start", 0))
+        end_time = _format_srt_time(segment.get("end", 0))
+        text = segment.get("text", "").strip()
+
+        srt_lines.append(f"{i}")
+        srt_lines.append(f"{start_time} --> {end_time}")
+        srt_lines.append(text)
+        srt_lines.append("")  # Empty line between entries
+
+    return "\n".join(srt_lines)
+
+
+def _format_srt_time(seconds: float) -> str:
+    """Format seconds to SRT time format: HH:MM:SS,mmm"""
+    hours = int(seconds // 3600)
+    minutes = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    millis = int((seconds % 1) * 1000)
+    return f"{hours:02d}:{minutes:02d}:{secs:02d},{millis:03d}"
+
+
 def load_subtitle_preset(workspace: str, preset_name: str) -> dict:
     """Load subtitle preset configuration."""
     workspace_path = Path(workspace)
