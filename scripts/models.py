@@ -7,10 +7,8 @@ from pydantic import BaseModel, Field
 class Session(BaseModel):
     session_id: str
     topic: str
-    platform_targets: list[str] = Field(
-        default_factory=lambda: ["youtube_lf", "shorts"]
-    )
-    profile: Optional[Literal["longform", "shorts", "both"]] = "longform"
+    platform_targets: list[str] = Field(default_factory=lambda: ["youtube_lf"])
+    profile: Optional[Literal["default"]] = "default"
     goal: str = "educativo"
     tone: str = "directo"
     cta: str = "Suscribete"
@@ -123,7 +121,7 @@ class KeepInterval(BaseModel):
 
 
 class CutMap(BaseModel):
-    profile: str = "shorts"
+    profile: str = "default"
     total_input_duration_s: float = 0.0
     total_output_duration_s: float = 0.0
     keep_intervals: list[KeepInterval] = Field(default_factory=list)
