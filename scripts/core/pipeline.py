@@ -14,6 +14,7 @@ from scripts.core.stages import (
     analyze,
     cutmap,
     assemble,
+    subtitles,
     export,
 )
 
@@ -43,6 +44,9 @@ class Pipeline:
         StageInfo("Analyze", "analyzed", analyze, "Silence/filler/energy detection"),
         StageInfo("Cutmap", "cutmapped", cutmap, "Generate edit decisions"),
         StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
+        StageInfo(
+            "Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"
+        ),
         StageInfo("Export", "exported", export, "Render final videos"),
     ]
 
@@ -57,6 +61,9 @@ class Pipeline:
         ),
         StageInfo("Prepare", "cutmapped", None, "Analyze + cutmap"),
         StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
+        StageInfo(
+            "Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"
+        ),
         StageInfo("Export", "exported", export, "Render final videos"),
     ]
 
