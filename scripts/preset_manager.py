@@ -4,9 +4,7 @@ Loads presets from config JSON files and provides CRUD operations.
 """
 
 import json
-import shutil
 from pathlib import Path
-from typing import Any
 
 
 class PresetManager:
@@ -25,7 +23,7 @@ class PresetManager:
         """Load presets from JSON file."""
         path = self._config_dir / filename
         if path.exists():
-            with open(path, "r") as f:
+            with open(path) as f:
                 return json.load(f)
         return {}
 
@@ -263,9 +261,7 @@ class PresetManager:
 
     # === Utility ===
 
-    def export_preset_to_file(
-        self, preset_type: str, name: str, output_path: str
-    ) -> bool:
+    def export_preset_to_file(self, preset_type: str, name: str, output_path: str) -> bool:
         """Export a preset to a file."""
         if preset_type == "subtitle":
             preset = self.get_subtitle_preset(name)
