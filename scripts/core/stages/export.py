@@ -27,7 +27,7 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("export", f"Session '{session_id}' not found")
 
-    profile_name = session.profile or "longform"
+    profile_name = session.profile or "default"
 
     # Assembled in output/proxies, exports go to output/exports
     proxies_dir = workspace_path / "output" / "proxies" / session_id
@@ -38,18 +38,10 @@ def run(session_id: str, workspace: str) -> dict:
     if not assembled.exists():
         raise StageError("export", f"Assembled video not found: {assembled}")
 
-    if profile_name == "both":
-        targets = ["youtube_lf", "shorts"]
-    elif profile_name == "longform":
-        targets = ["youtube_lf"]
-    else:
-        targets = ["shorts"]
-
-    export_files = []
-    for target in targets:
-        output = exports_dir / f"{target}.mp4"
-        ffmpeg.export_full_quality(str(assembled), str(output))
-        export_files.append(str(output))
+    # Default profile exports as youtube_lf
+    output = exports_dir / "youtube_lf.mp4"
+    ffmpeg.export_full_quality(str(assembled), str(output))
+    export_files = [str(output)]
 
     session.status = "exported"
     session_manager.save_session(session)
