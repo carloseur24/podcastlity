@@ -41,7 +41,7 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("subtitles", f"Session '{session_id}' not found")
 
-    profile = session.profile or "longform"
+    profile = session.profile or "default"
 
     # Load preset for this profile
     preset_name, preset_config = get_preset_for_profile(workspace, profile)
