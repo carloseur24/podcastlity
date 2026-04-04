@@ -28,7 +28,9 @@ def load_transcript(workspace: str, session_id: str) -> list[dict]:
         List of transcript segments with word-level timestamps
     """
     workspace_path = Path(workspace)
-    transcript_file = workspace_path / "transcripts" / session_id / "segments.json"
+    transcript_file = (
+        workspace_path / "output" / "transcripts" / session_id / "segments.json"
+    )
 
     if not transcript_file.exists():
         raise FileNotFoundError(f"Transcript not found: {transcript_file}")

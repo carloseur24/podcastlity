@@ -6,6 +6,7 @@ from pathlib import Path
 from scripts.utils.session import SessionManager
 from scripts.utils import ffmpeg
 from scripts.core.exceptions import StageError
+from scripts.config import get_config
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -14,6 +15,8 @@ def run(session_id: str, workspace: str) -> dict:
 
     Uses transcript-aware cutting to keep complete sentences/phrases
     instead of cutting mid-sentence at silence points.
+
+    CAN be disabled via profile config (enable_cutting: false).
 
     Args:
         session_id: The session identifier
@@ -24,6 +27,7 @@ def run(session_id: str, workspace: str) -> dict:
     """
     workspace_path = Path(workspace)
     session_manager = SessionManager(workspace)
+    config = get_config(workspace)
 
     try:
         session = session_manager.load_session(session_id)
@@ -32,15 +36,58 @@ def run(session_id: str, workspace: str) -> dict:
 
     profile_name = session.profile or "longform"
 
-    analysis_dir = workspace_path / "analysis" / session_id
-    cutmap_dir = workspace_path / "cutmaps" / session_id
+    # Check if cutting is enabled (default: disabled)
+    enable_cutting = config.get_profile_enable_cutting(profile_name)
+
+    if not enable_cutting:
+        # No cutting - keep full video
+        analysis_dir = workspace_path / "output" / "analysis" / session_id
+        cutmap_dir = workspace_path / "output" / "cutmaps" / session_id
+        cutmap_dir.mkdir(parents=True, exist_ok=True)
+
+        # Get video duration
+        camera_proxy = (
+            workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
+        )
+        if camera_proxy.exists():
+            duration = ffmpeg.get_duration(str(camera_proxy))
+        else:
+            duration = 600  # Default 10 minutes
+
+        # Create a "no-cut" cutmap
+        cutmap = {
+            "profile": profile_name,
+            "enable_cutting": False,
+            "total_input_duration_s": duration,
+            "total_output_duration_s": duration,
+            "keep_intervals": [{"start": 0, "end": duration, "type": "content"}],
+            "cut_points": [],
+        }
+
+        (cutmap_dir / f"{profile_name}.json").write_text(json.dumps(cutmap, indent=2))
+
+        session.status = "cutmapped"
+        session_manager.save_session(session)
+
+        return {
+            "cutmap_file": str(cutmap_dir / f"{profile_name}.json"),
+            "output_duration": duration,
+            "input_duration": duration,
+            "session_status": "cutmapped",
+        }
+
+    # Cutting is enabled - proceed with normal logic
+    analysis_dir = workspace_path / "output" / "analysis" / session_id
+    cutmap_dir = workspace_path / "output" / "cutmaps" / session_id
     cutmap_dir.mkdir(parents=True, exist_ok=True)
 
     silence_map = json.loads((analysis_dir / "silence_map.json").read_text())
     filler_map = json.loads((analysis_dir / "filler_map.json").read_text())
 
-    # Load transcript for smart cutting
-    transcript_file = workspace_path / "transcripts" / session_id / "segments.json"
+    # Load transcript for smart cutting (output/transcripts)
+    transcript_file = (
+        workspace_path / "output" / "transcripts" / session_id / "segments.json"
+    )
     transcript_segments = []
     if transcript_file.exists():
         transcript_segments = json.loads(transcript_file.read_text())
@@ -49,7 +96,10 @@ def run(session_id: str, workspace: str) -> dict:
     profiles = json.loads(profiles_file.read_text())
     profile = profiles.get(profile_name, profiles["longform"])
 
-    camera_proxy = workspace_path / "proxies" / session_id / "camera_proxy.mp4"
+    # Camera proxy in output/proxies
+    camera_proxy = (
+        workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
+    )
     if camera_proxy.exists():
         duration = ffmpeg.get_duration(str(camera_proxy))
     else:

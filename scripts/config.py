@@ -157,7 +157,11 @@ class ConfigProvider:
         return self.get_profile(profile_name).get("silence_threshold_db", -40)
 
     def get_profile_silence_min_duration(self, profile_name: str) -> float:
-        return self.get_profile(profile_name).get("silence_min_duration_s", 0.5)
+        return self.get_profile(profile_name).get("silence_min_duration_s", 0.8)
+
+    def get_profile_enable_cutting(self, profile_name: str) -> bool:
+        """Whether silence cutting is enabled (default: False)."""
+        return self.get_profile(profile_name).get("enable_cutting", False)
 
     def get_profile_collapse_to(self, profile_name: str) -> float:
         return self.get_profile(profile_name).get("collapse_to_s", 0.25)

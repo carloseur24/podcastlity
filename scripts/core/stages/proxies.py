@@ -1,4 +1,4 @@
-"""Stage 2: Proxies - Create proxy videos and extract audio."""
+"""Stage: Proxies - Create proxy videos and extract audio (output/proxies, output/audio)."""
 
 from pathlib import Path
 
@@ -10,6 +10,7 @@ from scripts.core.exceptions import StageError
 def run(session_id: str, workspace: str) -> dict:
     """
     Create proxy videos and extract audio.
+    Now uses output/ directories.
 
     Args:
         session_id: The session identifier
@@ -30,8 +31,13 @@ def run(session_id: str, workspace: str) -> dict:
     screen_proxy_path = None
     audio_path = None
 
-    camera_proxy = workspace_path / "proxies" / session_id / "camera_proxy.mp4"
-    screen_proxy = workspace_path / "proxies" / session_id / "screen_proxy.mp4"
+    # Proxies go in output/proxies
+    camera_proxy = (
+        workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
+    )
+    screen_proxy = (
+        workspace_path / "output" / "proxies" / session_id / "screen_proxy.mp4"
+    )
     camera_proxy.parent.mkdir(parents=True, exist_ok=True)
 
     if session.camera_file and not camera_proxy.exists():
@@ -42,7 +48,8 @@ def run(session_id: str, workspace: str) -> dict:
         ffmpeg.create_proxy(session.screen_file, str(screen_proxy))
         screen_proxy_path = str(screen_proxy)
 
-    audio_dir = workspace_path / "audio" / session_id
+    # Audio goes in output/audio
+    audio_dir = workspace_path / "output" / "audio" / session_id
     audio_dir.mkdir(parents=True, exist_ok=True)
     master_wav = audio_dir / "master.wav"
 

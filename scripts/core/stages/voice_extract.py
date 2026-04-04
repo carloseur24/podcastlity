@@ -453,14 +453,16 @@ def run(session_id: str, workspace: str) -> dict:
     arnndn_settings = config.get_arnndn_settings()
     arnndn_mix = arnndn_settings.get("mix", 0.85)
 
-    # Input is the master.wav from Proxies stage
-    input_audio = workspace_path / "audio" / session_id / "master.wav"
+    # Input is the master.wav from Proxies stage (output/audio)
+    input_audio = workspace_path / "output" / "audio" / session_id / "master.wav"
     if not input_audio.exists():
         raise StageError("voice_extract", f"Audio not found: {input_audio}")
 
-    # Intermediate files
-    denoised_audio = workspace_path / "audio" / session_id / "master_denoised.wav"
-    output_audio = workspace_path / "audio" / session_id / "master_voice.wav"
+    # Intermediate files go in output/audio
+    denoised_audio = (
+        workspace_path / "output" / "audio" / session_id / "master_denoised.wav"
+    )
+    output_audio = workspace_path / "output" / "audio" / session_id / "master_voice.wav"
 
     try:
         # Step 1: Try system FFmpeg with dialoguenhance + arnndn (Adobe Podcast's technique!)
@@ -532,7 +534,9 @@ def run(session_id: str, workspace: str) -> dict:
         )
 
         # Write intermediate voice-only audio
-        voice_only_wav = workspace_path / "audio" / session_id / "master_voice_raw.wav"
+        voice_only_wav = (
+            workspace_path / "output" / "audio" / session_id / "master_voice_raw.wav"
+        )
         wavfile.write(str(voice_only_wav), rate, voice_audio)
 
         # Step 6: Apply full podcast chain for professional quality
@@ -565,8 +569,10 @@ def run(session_id: str, workspace: str) -> dict:
             f"[voice_extract] Voice: {total_voice_duration:.1f}s / {total_duration:.1f}s ({voice_pct:.1f}%)"
         )
 
-        # Save speech timestamps for reference
-        vad_file = workspace_path / "analysis" / session_id / "vad_timestamps.json"
+        # Save speech timestamps for reference (output/analysis)
+        vad_file = (
+            workspace_path / "output" / "analysis" / session_id / "vad_timestamps.json"
+        )
         vad_file.parent.mkdir(parents=True, exist_ok=True)
         vad_file.write_text(json.dumps(speech_timestamps, indent=2))
 

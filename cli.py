@@ -406,13 +406,13 @@ def view_results(session_id: str) -> None:
 
     # List files in each output dir
     dirs = [
-        ("Grabaciones", base / "recordings" / session_id),
-        ("Proxies", base / "proxies" / session_id),
-        ("Audio", base / "audio" / session_id),
-        ("Transcripcion", base / "transcripts" / session_id),
-        ("Analisis", base / "analysis" / session_id),
-        ("Cutmaps", base / "cutmaps" / session_id),
-        ("Exportes", base / "exports" / session_id),
+        ("Grabaciones", base / "data" / "recordings" / session_id),
+        ("Proxies", base / "output" / "proxies" / session_id),
+        ("Audio", base / "output" / "audio" / session_id),
+        ("Transcripcion", base / "output" / "transcripts" / session_id),
+        ("Analisis", base / "output" / "analysis" / session_id),
+        ("Cutmaps", base / "output" / "cutmaps" / session_id),
+        ("Exportes", base / "output" / "exports" / session_id),
     ]
 
     for name, d in dirs:
@@ -432,7 +432,7 @@ def preview_session(session_id: str) -> None:
 
     session = session_manager.load_session(session_id)
 
-    exports_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+    exports_dir = Path(WORKSPACE_ROOT) / "output" / "exports" / session_id
     videos = list(exports_dir.glob("*.mp4"))
 
     if not videos:
@@ -464,8 +464,10 @@ def preview_audio(session_id: str) -> None:
     session = session_manager.load_session(session_id)
 
     # Use master_voice.wav (VAD extracted + cleaned) or fallback to master.wav
-    voice_audio = Path(WORKSPACE_ROOT) / "audio" / session_id / "master_voice.wav"
-    raw_audio = Path(WORKSPACE_ROOT) / "audio" / session_id / "master.wav"
+    voice_audio = (
+        Path(WORKSPACE_ROOT) / "output" / "audio" / session_id / "master_voice.wav"
+    )
+    raw_audio = Path(WORKSPACE_ROOT) / "output" / "audio" / session_id / "master.wav"
     report_file = (
         Path(WORKSPACE_ROOT) / "analysis" / session_id / "preprocess_report.json"
     )
@@ -819,9 +821,9 @@ def run_stage_3_subtitles() -> None:
         return
 
     # List video files in session
-    session_dir = Path(WORKSPACE_ROOT) / "recordings" / session_id
-    proxies_dir = Path(WORKSPACE_ROOT) / "proxies" / session_id
-    exports_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+    session_dir = Path(WORKSPACE_ROOT) / "data" / "recordings" / session_id
+    proxies_dir = Path(WORKSPACE_ROOT) / "output" / "proxies" / session_id
+    exports_dir = Path(WORKSPACE_ROOT) / "output" / "exports" / session_id
 
     video_files = []
     for d in [session_dir, proxies_dir, exports_dir]:
@@ -860,7 +862,7 @@ def run_stage_3_subtitles() -> None:
 
     # Check or generate transcription
     transcript_file = (
-        Path(WORKSPACE_ROOT) / "transcripts" / session_id / "segments.json"
+        Path(WORKSPACE_ROOT) / "output" / "transcripts" / session_id / "segments.json"
     )
 
     if transcript_file.exists():
@@ -881,7 +883,7 @@ def run_stage_3_subtitles() -> None:
             menus.console.print("\n[bold]Transcribiendo audio con Whisper...[/bold]")
 
             # Extract audio if not exists
-            audio_dir = Path(WORKSPACE_ROOT) / "audio" / session_id
+            audio_dir = Path(WORKSPACE_ROOT) / "output" / "audio" / session_id
             audio_path = audio_dir / "master_voice.wav"
 
             if not audio_path.exists():
@@ -976,7 +978,7 @@ def run_stage_3_subtitles() -> None:
         preset_path = remotion_dir / "config" / "presets" / "test_preset.json"
 
     # Output path
-    output_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+    output_dir = Path(WORKSPACE_ROOT) / "output" / "exports" / session_id
     output_dir.mkdir(parents=True, exist_ok=True)
     output_filename = f"subtitled_{selected_video.stem}_{resolution}.mp4"
     output_path = output_dir / output_filename
@@ -1035,8 +1037,8 @@ def run_stage_4_coloring() -> None:
         return
 
     # List video files in session
-    session_dir = Path(WORKSPACE_ROOT) / "recordings" / session_id
-    exports_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+    session_dir = Path(WORKSPACE_ROOT) / "data" / "recordings" / session_id
+    exports_dir = Path(WORKSPACE_ROOT) / "output" / "exports" / session_id
 
     video_files = []
     for d in [session_dir, exports_dir]:
@@ -1113,7 +1115,7 @@ def run_stage_4_coloring() -> None:
     # Run color grading via FFmpeg
     from scripts.utils import ffmpeg
 
-    output_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+    output_dir = Path(WORKSPACE_ROOT) / "output" / "exports" / session_id
     output_dir.mkdir(parents=True, exist_ok=True)
     output_filename = f"colored_{selected_video.stem}.mp4"
     output_path = output_dir / output_filename

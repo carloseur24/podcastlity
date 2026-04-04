@@ -69,8 +69,8 @@ def run(session_id: str, workspace: str) -> dict:
     print(f"[subtitles] Presets file exists: {presets_file.exists()}")
 
     # Find input video (from Assemble stage)
-    proxies_dir = workspace_path / "proxies" / session_id
-    exports_dir = workspace_path / "exports" / session_id
+    proxies_dir = workspace_path / "output" / "proxies" / session_id
+    exports_dir = workspace_path / "output" / "exports" / session_id
     exports_dir.mkdir(parents=True, exist_ok=True)
 
     # Use assembled video as input
