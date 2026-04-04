@@ -1,0 +1,22 @@
+{
+  "name": "mvp-editing-pipeline",
+  "version": "0.1.0",
+  "description": "Video content pipeline CLI with Remotion subtitle integration",
+  "private": true,
+  "scripts": {
+    "format": "source .venv/bin/activate && ruff format . --exclude remotion/",
+    "format:all": "source .venv/bin/activate && ruff format . && cd remotion && pnpm exec prettier --write 'src/**/*.{js,jsx,ts,tsx}'",
+    "format:py": "source .venv/bin/activate && ruff format .",
+    "format:remotion": "cd remotion && pnpm exec prettier --write 'src/**/*.{js,jsx,ts,tsx}'",
+    "test": "echo 'Use test:py or test:remotion'",
+    "test:py": "source .venv/bin/activate && python -m pytest tests/ --ignore=tests/test_audio_processing.py --ignore=tests/test_e2e.py -v",
+    "test:py:quick": "source .venv/bin/activate && python -m pytest tests/ --ignore=tests/test_audio_processing.py --ignore=tests/test_e2e.py -q",
+    "test:remotion": "cd remotion && pnpm exec prettier --check 'src/**/*.{js,jsx,ts,tsx}'",
+    "test:all": "npm run test:py:quick && npm run test:remotion",
+    "lint": "source .venv/bin/activate && ruff check . --exclude remotion/",
+    "typecheck": "source .venv/bin/activate && python -m mypy scripts/ --config-file pyproject.toml"
+  },
+  "devDependencies": {
+    "ruff": "^0.15.0"
+  }
+}
