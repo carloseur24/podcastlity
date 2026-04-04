@@ -76,7 +76,7 @@ class ConfigProvider:
         return self._settings.get("whisper_vad_min_silence_duration_ms", 500)
 
     def get_default_profile(self) -> str:
-        return self._settings.get("default_profile", "longform")
+        return "default"
 
     def get_proxy_resolution(self) -> str:
         return self._settings.get("proxy_resolution", "1280x720")
@@ -220,7 +220,7 @@ class ConfigProvider:
     def get_loudnorm_targets(self, profile_name: str) -> dict:
         loudnorm = self.get_loudnorm_settings()
         return loudnorm.get(
-            profile_name, loudnorm.get("longform", {"I": -16, "TP": -1.5, "LRA": 11})
+            profile_name, loudnorm.get("default", {"I": -16, "TP": -1.5, "LRA": 11})
         )
 
     # === Brand Settings ===
