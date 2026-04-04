@@ -134,13 +134,17 @@ class ConfigProvider:
     def get_diagnostic_settings(self) -> dict:
         return self._filters.get("diagnostic", {})
 
-    # === Profile Settings ===
+    # === Profile Settings (now uses single "default" profile) ===
 
-    def get_profile(self, profile_name: str) -> dict:
-        return self._profiles.get(profile_name, {})
+    def get_profile(self, profile_name: str = "default") -> dict:
+        """Get profile settings, falls back to default."""
+        profile = self._profiles.get(profile_name, {})
+        if not profile:
+            profile = self._profiles.get("default", {})
+        return profile
 
-    def get_profile_voice_extract_settings(self, profile_name: str) -> dict:
-        """Get voice_extract settings for a specific profile, with fallback to global settings."""
+    def get_profile_voice_extract_settings(self, profile_name: str = "default") -> dict:
+        """Get voice_extract settings for profile, with fallback to global settings."""
         profile = self.get_profile(profile_name)
         voice_extract_settings = profile.get("voice_extract", {})
 
@@ -153,50 +157,56 @@ class ConfigProvider:
     def get_all_profiles(self) -> list[str]:
         return list(self._profiles.keys())
 
-    def get_profile_silence_threshold(self, profile_name: str) -> float:
+    def get_profile_silence_threshold(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("silence_threshold_db", -40)
 
-    def get_profile_silence_min_duration(self, profile_name: str) -> float:
+    def get_profile_silence_min_duration(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("silence_min_duration_s", 0.8)
 
-    def get_profile_enable_cutting(self, profile_name: str) -> bool:
+    def get_profile_enable_cutting(self, profile_name: str = "default") -> bool:
         """Whether silence cutting is enabled (default: False)."""
         return self.get_profile(profile_name).get("enable_cutting", False)
 
-    def get_profile_collapse_to(self, profile_name: str) -> float:
+    def get_profile_collapse_to(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("collapse_to_s", 0.25)
 
-    def get_profile_trim_pad_before(self, profile_name: str) -> float:
+    def get_profile_trim_pad_before(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("trim_pad_before_s", 0.1)
 
-    def get_profile_trim_pad_after(self, profile_name: str) -> float:
+    def get_profile_trim_pad_after(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("trim_pad_after_s", 0.12)
 
-    def get_profile_remove_fillers(self, profile_name: str) -> bool:
+    def get_profile_remove_fillers(self, profile_name: str = "default") -> bool:
         return self.get_profile(profile_name).get("remove_fillers", False)
 
-    def get_profile_filler_confidence_threshold(self, profile_name: str) -> float:
+    def get_profile_filler_confidence_threshold(
+        self, profile_name: str = "default"
+    ) -> float:
         return self.get_profile(profile_name).get("filler_confidence_threshold", 0.9)
 
-    def get_profile_low_energy_min_duration(self, profile_name: str) -> float:
+    def get_profile_low_energy_min_duration(
+        self, profile_name: str = "default"
+    ) -> float:
         return self.get_profile(profile_name).get("low_energy_min_duration_s", 5.0)
 
-    def get_profile_target_duration(self, profile_name: str) -> float | None:
+    def get_profile_target_duration(
+        self, profile_name: str = "default"
+    ) -> float | None:
         return self.get_profile(profile_name).get("target_duration_s")
 
-    def get_profile_max_duration(self, profile_name: str) -> float | None:
+    def get_profile_max_duration(self, profile_name: str = "default") -> float | None:
         return self.get_profile(profile_name).get("max_duration_s")
 
-    def get_profile_caption_words_per_line(self, profile_name: str) -> int:
+    def get_profile_caption_words_per_line(self, profile_name: str = "default") -> int:
         return self.get_profile(profile_name).get("caption_words_per_line", 7)
 
-    def get_profile_caption_style(self, profile_name: str) -> str:
+    def get_profile_caption_style(self, profile_name: str = "default") -> str:
         return self.get_profile(profile_name).get("caption_style", "default")
 
-    def get_profile_pip_position(self, profile_name: str) -> str:
+    def get_profile_pip_position(self, profile_name: str = "default") -> str:
         return self.get_profile(profile_name).get("pip_position", "bottom_right")
 
-    def get_profile_pip_size_ratio(self, profile_name: str) -> float:
+    def get_profile_pip_size_ratio(self, profile_name: str = "default") -> float:
         return self.get_profile(profile_name).get("pip_size_ratio", 0.167)
 
     def get_profile_aspect_ratio(self, profile_name: str) -> str:
