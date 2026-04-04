@@ -97,9 +97,56 @@ def _apply_arnndn(input_wav: str, output_wav: str, model_path: str, mix: float) 
         return False
 
 
-def _apply_highpass_and_loudnorm(input_wav: str, output_wav: str) -> bool:
-    """Apply highpass and loudnorm using system FFmpeg."""
-    # Use system FFmpeg for these filters (more compatible)
+def _apply_podcast_chain(input_wav: str, output_wav: str) -> bool:
+    """
+    Apply professional podcast audio chain:
+    1. highpass 80Hz - remove low rumble
+    2. equalizer 2-4kHz +3dB - vocal sheen/crispness
+    3. compressor - consistent volume
+    4. loudnorm -16 LUFS (2-pass) - podcast standard
+    """
+    ffmpeg_path = "/usr/bin/ffmpeg"
+
+    # Full podcast quality chain
+    filter_chain = (
+        "highpass=f=80,"  # Remove low rumble
+        "equalizer=f=3000:t=q:width_type=s:width=2000:g=3,"  # Vocal sheen 2-4kHz +3dB
+        "acompressor=threshold=-20dB:ratio=4:attack=5:release=50,"  # Voice compression
+        "loudnorm=I=-16:TP=-1.5:LRA=11"  # Podcast loudness standard
+    )
+
+    cmd = [
+        ffmpeg_path,
+        "-y",
+        "-i",
+        input_wav,
+        "-af",
+        filter_chain,
+        "-ac",
+        "1",
+        "-ar",
+        "48000",
+        output_wav,
+    ]
+
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
+        if result.returncode == 0:
+            print(
+                f"[voice_extract] Applied podcast chain: highpass + EQ + compressor + loudnorm"
+            )
+            return True
+        else:
+            print(f"[voice_extract] Podcast chain warning: {result.stderr[:200]}")
+            # Fall back to simpler chain
+            return _apply_highpass_and_loudnorm_simple(input_wav, output_wav)
+    except Exception as e:
+        print(f"[voice_extract] Podcast chain error: {e}")
+        return False
+
+
+def _apply_highpass_and_loudnorm_simple(input_wav: str, output_wav: str) -> bool:
+    """Simple fallback: highpass + loudnorm."""
     ffmpeg_path = "/usr/bin/ffmpeg"
 
     filter_chain = "highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11"
@@ -415,9 +462,9 @@ def run(session_id: str, workspace: str) -> dict:
                 if not spectral_success:
                     # Ultimate fallback: just highpass + loudnorm
                     print(
-                        "[voice_extract] All noise reduction failed, applying highpass + loudnorm only..."
+                        "[voice_extract] All noise reduction failed, applying podcast chain..."
                     )
-                    _apply_highpass_and_loudnorm(str(input_audio), str(denoised_audio))
+                    _apply_podcast_chain(str(input_audio), str(denoised_audio))
 
         # Step 2: Load Silero VAD model
         print("[voice_extract] Loading Silero VAD model...")
@@ -462,11 +509,11 @@ def run(session_id: str, workspace: str) -> dict:
         voice_only_wav = workspace_path / "audio" / session_id / "master_voice_raw.wav"
         wavfile.write(str(voice_only_wav), rate, voice_audio)
 
-        # Step 6: Apply final highpass + loudnorm for podcast standard
-        print("[voice_extract] Applying final highpass + loudnorm...")
-        final_success = _apply_highpass_and_loudnorm(
-            str(voice_only_wav), str(output_audio)
+        # Step 6: Apply full podcast chain for professional quality
+        print(
+            "[voice_extract] Applying podcast chain: highpass + EQ + compressor + loudnorm..."
         )
+        final_success = _apply_podcast_chain(str(voice_only_wav), str(output_audio))
 
         if not final_success:
             # If final processing fails, use the raw voice audio
@@ -571,10 +618,10 @@ def process_segment(
 
         voice_audio = np.concatenate(voice_segments)
 
-        # Step 4: Apply final processing
+        # Step 4: Apply final podcast chain for professional quality
         temp_voice = output_path.replace(".wav", "_voice.wav")
         wavfile.write(str(temp_voice), rate, voice_audio)
-        _apply_highpass_and_loudnorm(str(temp_voice), output_path)
+        _apply_podcast_chain(str(temp_voice), output_path)
 
         # Cleanup
         Path(temp_denoised).unlink(missing_ok=True)
