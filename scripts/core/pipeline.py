@@ -1,29 +1,28 @@
 """Pipeline orchestrator - coordinates all pipeline stages."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 from dataclasses import dataclass
 
-from scripts.utils.session import SessionManager
-from scripts.core.exceptions import StageError, StageNotFoundError, SessionNotFoundError
-
+from scripts.core.exceptions import SessionNotFoundError, StageError, StageNotFoundError
 from scripts.core.stages import (
+    analyze,
+    assemble,
+    cutmap,
+    export,
     ingest,
     proxies,
-    voice_extract,
-    transcribe,
-    analyze,
-    cutmap,
-    assemble,
     subtitles,
-    export,
+    transcribe,
+    voice_extract,
 )
+from scripts.utils.session import SessionManager
 
 
 @dataclass
 class StageInfo:
     name: str
     status_key: str
-    module: Optional[callable]
+    module: Callable | None
     description: str
 
 
@@ -39,16 +38,12 @@ class Pipeline:
     STAGES = [
         StageInfo("Ingest", "ingested", ingest, "Copy files to session directory"),
         StageInfo("Proxies", "proxied", proxies, "Create proxies and extract audio"),
-        StageInfo(
-            "VoiceExtract", "voice_extracted", voice_extract, "Extract voice using VAD"
-        ),
+        StageInfo("VoiceExtract", "voice_extracted", voice_extract, "Extract voice using VAD"),
         StageInfo("Transcribe", "transcribed", transcribe, "Whisper speech-to-text"),
         StageInfo("Analyze", "analyzed", analyze, "Silence/filler/energy detection"),
         StageInfo("Cutmap", "cutmapped", cutmap, "Generate edit decisions"),
         StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
-        StageInfo(
-            "Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"
-        ),
+        StageInfo("Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"),
         StageInfo("Export", "exported", export, "Render final videos"),
     ]
 
@@ -69,7 +64,7 @@ class Pipeline:
     def run_full(
         self,
         session_id: str,
-        on_progress: Optional[Callable[[str, str], None]] = None,
+        on_progress: Callable[[str, str], None] | None = None,
     ) -> dict:
         """
         Run full pipeline for a session.
