@@ -33,7 +33,7 @@ class SessionManager:
         self,
         session_id: str,
         topic: str,
-        profile: str = "longform",
+        profile: str = "default",
         goal: str = "educativo",
         tone: str = "directo",
         cta: str = "Suscribete",
@@ -100,7 +100,7 @@ def load_settings(workspace_root: str) -> dict:
 def load_profile(profile_name: str, workspace_root: str) -> dict:
     profiles_file = Path(workspace_root) / "config" / "profiles.json"
     profiles = json.loads(profiles_file.read_text())
-    return profiles.get(profile_name, profiles["longform"])
+    return profiles.get(profile_name, profiles.get("default", {}))
 
 
 def load_brand(workspace_root: str) -> dict:
