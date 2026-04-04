@@ -104,9 +104,7 @@ class TestTranscript:
 
 class TestSilenceInterval:
     def test_silence_interval(self):
-        si = SilenceInterval(
-            start=10.0, end=15.0, duration=5.0, type="between_sentences"
-        )
+        si = SilenceInterval(start=10.0, end=15.0, duration=5.0, type="between_sentences")
         assert si.start == 10.0
         assert si.end == 15.0
         assert si.type == "between_sentences"
@@ -247,9 +245,7 @@ class TestBrief:
                 composicion="test",
             ),
             scene_outline=[
-                BriefSceneOutline(
-                    id=1, titulo="Scene 1", descripcion="Desc", duracion_s=30
-                )
+                BriefSceneOutline(id=1, titulo="Scene 1", descripcion="Desc", duracion_s=30)
             ],
             motion_style="energetico",
         )
