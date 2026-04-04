@@ -11,21 +11,19 @@ Pipeline:
 
 import json
 import subprocess
-import torch
-import torchaudio
 from pathlib import Path
-from functools import partial
 
-from silero_vad import load_silero_vad, get_speech_timestamps
-from scipy.io import wavfile
-import numpy as np
 import noisereduce as nr
+import numpy as np
 import pyrnnoise
+import torch
+from scipy.io import wavfile
+from silero_vad import get_speech_timestamps, load_silero_vad
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
-from scripts.core.exceptions import StageError
 from scripts.config import ConfigProvider
+from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def _read_audio_with_scipy(audio_path: str, target_sr: int = 16000):
@@ -66,9 +64,7 @@ def _apply_arnndn(input_wav: str, output_wav: str, model_path: str, mix: float) 
 
     # Build filter: arnndn with custom model + highpass + loudnorm
     filter_chain = (
-        f"arnndn=model_path={model_path}:mix={mix},"
-        "highpass=f=80,"
-        "loudnorm=I=-16:TP=-1.5:LRA=11"
+        f"arnndn=model_path={model_path}:mix={mix},highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11"
     )
 
     cmd = [
@@ -97,9 +93,7 @@ def _apply_arnndn(input_wav: str, output_wav: str, model_path: str, mix: float) 
         return False
 
 
-def _apply_podcast_chain(
-    input_wav: str, output_wav: str, profile: str = "default"
-) -> bool:
+def _apply_podcast_chain(input_wav: str, output_wav: str, profile: str = "default") -> bool:
     """
     Apply professional podcast audio chain with custom EQ settings:
     Based on frequency analysis:
@@ -238,10 +232,7 @@ def _apply_dialogue_enhance(input_wav: str, output_wav: str) -> bool:
     # dialoguenhance: model=0 is default, helps enhance dialog/speech
     # Combined with arnndn for best results
     filter_chain = (
-        "dialoguenhance=model=0:mix=0.8,"
-        "arnndn=mix=0.85,"
-        "highpass=f=80,"
-        "loudnorm=I=-16:TP=-1.5:LRA=11"
+        "dialoguenhance=model=0:mix=0.8,arnndn=mix=0.85,highpass=f=80,loudnorm=I=-16:TP=-1.5:LRA=11"
     )
 
     cmd = [
@@ -314,7 +305,7 @@ def _apply_spectral_noise_reduction(input_wav: str, output_wav: str) -> bool:
         # Write output
         wavfile.write(output_wav, rate, reduced_audio)
 
-        print(f"[voice_extract] Applied spectral noise reduction")
+        print("[voice_extract] Applied spectral noise reduction")
         return True
 
     except Exception as e:
@@ -449,14 +440,12 @@ def run(session_id: str, workspace: str) -> dict:
         raise StageError("voice_extract", f"Audio not found: {input_audio}")
 
     # Intermediate files go in output/audio
-    denoised_audio = (
-        workspace_path / "output" / "audio" / session_id / "master_denoised.wav"
-    )
+    denoised_audio = workspace_path / "output" / "audio" / session_id / "master_denoised.wav"
     output_audio = workspace_path / "output" / "audio" / session_id / "master_voice.wav"
 
     try:
         # Step 1: Try system FFmpeg with dialoguenhance + arnndn (Adobe Podcast's technique!)
-        print(f"[voice_extract] Trying system FFmpeg with dialoguenhance + arnndn...")
+        print("[voice_extract] Trying system FFmpeg with dialoguenhance + arnndn...")
         ff_success = _apply_dialogue_enhance(str(input_audio), str(denoised_audio))
 
         if not ff_success:
@@ -471,17 +460,13 @@ def run(session_id: str, workspace: str) -> dict:
 
             if not rnnoise_success:
                 # Final fallback: spectral noise reduction
-                print(
-                    "[voice_extract] RNNoise failed, applying spectral noise reduction..."
-                )
+                print("[voice_extract] RNNoise failed, applying spectral noise reduction...")
                 spectral_success = _apply_spectral_noise_reduction(
                     str(input_audio), str(denoised_audio)
                 )
                 if not spectral_success:
                     # Ultimate fallback: just highpass + loudnorm
-                    print(
-                        "[voice_extract] All noise reduction failed, applying podcast chain..."
-                    )
+                    print("[voice_extract] All noise reduction failed, applying podcast chain...")
                     _apply_podcast_chain(str(input_audio), str(denoised_audio), profile)
 
         # Step 2: Load Silero VAD model
@@ -490,9 +475,7 @@ def run(session_id: str, workspace: str) -> dict:
 
         # Step 3: Run VAD on denoised audio
         print(f"[voice_extract] Reading denoised audio: {denoised_audio}")
-        audio_tensor, sample_rate = _read_audio_with_scipy(
-            str(denoised_audio), target_sr=16000
-        )
+        audio_tensor, sample_rate = _read_audio_with_scipy(str(denoised_audio), target_sr=16000)
 
         print(
             f"[voice_extract] Detecting voice segments (min_speech={min_speech_ms}ms, min_silence={min_silence_ms}ms)..."
@@ -524,18 +507,12 @@ def run(session_id: str, workspace: str) -> dict:
         )
 
         # Write intermediate voice-only audio
-        voice_only_wav = (
-            workspace_path / "output" / "audio" / session_id / "master_voice_raw.wav"
-        )
+        voice_only_wav = workspace_path / "output" / "audio" / session_id / "master_voice_raw.wav"
         wavfile.write(str(voice_only_wav), rate, voice_audio)
 
         # Step 6: Apply full podcast chain for professional quality
-        print(
-            "[voice_extract] Applying podcast chain: highpass + EQ + compressor + loudnorm..."
-        )
-        final_success = _apply_podcast_chain(
-            str(voice_only_wav), str(output_audio), profile
-        )
+        print("[voice_extract] Applying podcast chain: highpass + EQ + compressor + loudnorm...")
+        final_success = _apply_podcast_chain(str(voice_only_wav), str(output_audio), profile)
 
         if not final_success:
             # If final processing fails, use the raw voice audio
@@ -551,18 +528,14 @@ def run(session_id: str, workspace: str) -> dict:
 
         # Calculate durations
         total_duration = len(audio_data) / rate
-        voice_pct = (
-            100 * total_voice_duration / total_duration if total_duration > 0 else 0
-        )
+        voice_pct = 100 * total_voice_duration / total_duration if total_duration > 0 else 0
 
         print(
             f"[voice_extract] Voice: {total_voice_duration:.1f}s / {total_duration:.1f}s ({voice_pct:.1f}%)"
         )
 
         # Save speech timestamps for reference (output/analysis)
-        vad_file = (
-            workspace_path / "output" / "analysis" / session_id / "vad_timestamps.json"
-        )
+        vad_file = workspace_path / "output" / "analysis" / session_id / "vad_timestamps.json"
         vad_file.parent.mkdir(parents=True, exist_ok=True)
         vad_file.write_text(json.dumps(speech_timestamps, indent=2))
 
@@ -585,9 +558,7 @@ def run(session_id: str, workspace: str) -> dict:
         raise StageError("voice_extract", f"VAD processing failed: {e}")
 
 
-def process_segment(
-    audio_segment_path: str, output_path: str, config: ConfigProvider
-) -> bool:
+def process_segment(audio_segment_path: str, output_path: str, config: ConfigProvider) -> bool:
     """
     Process a single audio segment (for use in assemble.py for per-segment processing).
 

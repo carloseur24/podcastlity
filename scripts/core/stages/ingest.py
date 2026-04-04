@@ -2,10 +2,9 @@
 
 import shutil
 from pathlib import Path
-from typing import Optional
 
-from scripts.utils.session import SessionManager
 from scripts.core.exceptions import StageError
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -31,8 +30,8 @@ def run(session_id: str, workspace: str) -> dict:
     # Session files go in data/recordings
     session_dir = workspace_path / "data" / "recordings" / session_id
 
-    camera_path: Optional[str] = None
-    screen_path: Optional[str] = None
+    camera_path: str | None = None
+    screen_path: str | None = None
 
     if session.camera_file:
         dest_cam = session_dir / "camera.mp4"

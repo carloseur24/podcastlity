@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
 from scripts.core.exceptions import StageError
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:

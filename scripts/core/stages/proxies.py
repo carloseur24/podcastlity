@@ -2,9 +2,9 @@
 
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
 from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -32,12 +32,8 @@ def run(session_id: str, workspace: str) -> dict:
     audio_path = None
 
     # Proxies go in output/proxies
-    camera_proxy = (
-        workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
-    )
-    screen_proxy = (
-        workspace_path / "output" / "proxies" / session_id / "screen_proxy.mp4"
-    )
+    camera_proxy = workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
+    screen_proxy = workspace_path / "output" / "proxies" / session_id / "screen_proxy.mp4"
     camera_proxy.parent.mkdir(parents=True, exist_ok=True)
 
     if session.camera_file and not camera_proxy.exists():
