@@ -4,7 +4,7 @@
  * Remotion Render Script
  * 
  * Renders video with kinetic subtitles using Remotion CLI.
- * Uses Python HTTP server for reliable video serving.
+ * Uses --public-dir for local video serving.
  * 
  * Usage:
  *   node render.js <input_video> <output_video> <captions_json> <preset_json> <fps> <duration> <width> <height>
@@ -15,30 +15,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync, spawn } = require('child_process');
-
-const PORT = 8765;
-
-async function waitForServer(port, maxAttempts = 10) {
-  const http = require('http');
-  
-  for (let i = 0; i < maxAttempts; i++) {
-    try {
-      await new Promise((resolve, reject) => {
-        const req = http.get(`http://127.0.0.1:${port}/video.mp4`, (res) => {
-          resolve(res.statusCode);
-        });
-        req.on('error', reject);
-        req.setTimeout(1000);
-      });
-      console.log('[remotion] Server is ready');
-      return true;
-    } catch (e) {
-      await new Promise(r => setTimeout(r, 500));
-    }
-  }
-  return false;
-}
+const { execSync } = require('child_process');
 
 async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps, duration, width, height) {
   console.log('[remotion] Starting render...');
@@ -76,41 +53,17 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
   const publicVideoPath = path.join(publicDir, 'input_video.mp4');
   if (!fs.existsSync(publicVideoPath) || fs.statSync(inputPathAbs).size !== fs.statSync(publicVideoPath).size) {
     fs.copyFileSync(inputPathAbs, publicVideoPath);
-    console.log('[remotion] Copied video to public folder');
+    console.log('[remotion] Copied video to public folder:', publicVideoPath);
   }
   
-  // Start Python HTTP server with absolute paths
-  console.log('[remotion] Starting Python HTTP server...');
-  console.log('[remotion] Public dir:', publicDir);
-  console.log('[remotion] Public video path:', publicVideoPath);
-  
-  const serverProcess = spawn('python3', [
-    path.join(__dirname, 'server.py'),
-    publicVideoPath,
-    publicDir,
-    String(PORT)
-  ], {
-    cwd: __dirname,
-    stdio: ['pipe', 'pipe', 'pipe']
-  });
-  
-  serverProcess.stdout.on('data', (data) => {
-    console.log('[server-out]', data.toString().trim());
-  });
-  
-  serverProcess.stderr.on('data', (data) => {
-    console.log('[server-err]', data.toString().trim());
-  });
-  
-  // Wait for server to be ready
-  await waitForServer(PORT);
-  const videoUrl = `http://127.0.0.1:${PORT}/video.mp4`;
-  console.log('[remotion] Video URL:', videoUrl);
+  console.log('[remotion] Public directory:', publicDir);
+  console.log('[remotion] Video file:', publicVideoPath);
+  console.log('[remotion] Video exists:', fs.existsSync(publicVideoPath));
   
   try {
-    // Create input props with HTTP URL
+    // Create input props - use relative path for public-dir mode
     const inputProps = {
-      videoSrc: videoUrl,
+      videoSrc: 'input_video.mp4',  // Relative path works with --public-dir
       captions: captions,
       preset: preset,
       durationInFrames: frameCount,
@@ -125,7 +78,7 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
     // Output path
     console.log('[remotion] Output path:', outputPathAbs);
     
-    // Run Remotion render with external server URL
+    // Run Remotion render with public directory for static files
     const cmd = [
       'npx', 'remotion', 'render',
       'index.tsx',
@@ -135,7 +88,7 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
       '--codec', 'h264',
       '--crf', '23',
       '--audio-codec', 'aac',
-      '--serve-url', `http://127.0.0.1:${PORT}`,
+      '--public-dir', publicDir,
       '--offline'
     ];
     
@@ -148,7 +101,7 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
         encoding: 'utf8',
         stdio: ['pipe', 'pipe', 'pipe']
       });
-      console.log('[remotion] Remotion output:', result.substring(0, 2000));
+      console.log('[remotion] Remotion output (first 2000 chars):', result.substring(0, 2000));
     } catch (error) {
       console.log('[remotion] Remotion stdout:', error.stdout ? error.stdout.substring(0, 2000) : 'None');
       console.log('[remotion] Remotion stderr:', error.stderr ? error.stderr.substring(0, 2000) : 'None');
@@ -165,10 +118,6 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
     
   } catch (error) {
     console.error('[remotion] Render failed:', error.message);
-  } finally {
-    // Stop server
-    serverProcess.kill();
-    console.log('[remotion] Server stopped');
   }
 }
 
