@@ -103,7 +103,6 @@ class Pipeline:
 
             try:
                 result = stage.module.run(session_id, self.workspace)
-
                 results[stage.status_key] = result
 
                 if on_progress:
@@ -132,8 +131,7 @@ class Pipeline:
         except FileNotFoundError:
             raise SessionNotFoundError(f"Session '{session_id}' not found")
 
-        profile = session.profile or "longform"
-        stages = self.get_stages_for_profile(profile)
+        stages = self.STAGES
 
         stage_info = None
         for s in stages:
@@ -144,39 +142,24 @@ class Pipeline:
         if not stage_info:
             raise StageNotFoundError(f"Stage '{stage_name}' not found")
 
-        if stage_info.name == "Prepare" and profile == "shorts":
-            return self._run_prepare(session_id)
-
         if stage_info.module is None:
             raise StageError(stage_info.name, "No module defined for this stage")
 
         return stage_info.module.run(session_id, self.workspace)
-
-    def _run_prepare(self, session_id: str) -> dict:
-        """Run combined prepare stage for shorts (analyze + cutmap)."""
-        analyze_result = analyze.run(session_id, self.workspace)
-
-        cutmap_result = cutmap.run(session_id, self.workspace)
-
-        return {
-            "analyze": analyze_result,
-            "cutmap": cutmap_result,
-        }
 
     def get_session_status(self, session_id: str) -> str:
         """Get current session status."""
         session = self.session_manager.load_session(session_id)
         return session.status or "created"
 
-    def get_available_stages(self, session_id: str) -> list[StageInfo]:
+    def get_available_stages(self, session_id: str) -> list[tuple[StageInfo, bool]]:
         """Get list of stages with their completion status."""
         try:
             session = self.session_manager.load_session(session_id)
         except FileNotFoundError:
             return []
 
-        profile = session.profile or "longform"
-        stages = self.get_stages_for_profile(profile)
+        stages = self.STAGES
 
         current_status = session.status or "created"
 
