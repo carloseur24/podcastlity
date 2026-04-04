@@ -42,58 +42,29 @@ def run_new_session() -> None:
         menus.print_error("Tema requerido")
         return
 
-    # Step 3: Goal
-    goal = menus.prompt_goal()
-
-    # Step 4: Tone
-    tone = menus.prompt_tone()
-
-    # Step 5: Duration (convert float minutes to int)
+    # Step 3: Duration (convert float minutes to int)
     duration_minutes = menus.prompt_duration()
     duration = int(round(duration_minutes))
 
-    # Step 7: Camera file
-    menus.console.print("\n[bold cyan]=== Seleccionar archivo de camara ===[/bold cyan]")
-    camera_path = run_file_picker("camera")
-    if not camera_path:
-        menus.print_error("Archivo de camara requerido")
+    # Step 4: Video file (single input)
+    menus.console.print("\n[bold cyan]=== Seleccionar archivo de video ===[/bold cyan]")
+    video_path = run_file_picker("video")
+    if not video_path:
+        menus.print_error("Archivo de video requerido")
         return
-
-    # Step 8: Screen file (optional - for b-roll/screen capture)
-    menus.console.print("\n[bold cyan]=== Archivo de pantalla/B-Roll (opcional) ===[/bold cyan]")
-    menus.console.print("  1. [cyan]Si[/cyan] - tengo archivo de pantalla o B-Roll")
-    menus.console.print("  2. [cyan]No[/cyan] - solo tengo camara")
-
-    has_screen = menus.Prompt.ask(
-        "\n[bold]Tienes pantalla o B-Roll?[/bold]",
-        choices=["1", "2"],
-        default="2",
-    )
-
-    if has_screen == "1":
-        screen_path = run_file_picker("screen", exclude=camera_path)
-        if screen_path is None:
-            screen_path = ""
-    else:
-        screen_path = ""
-        menus.print_warning("Continuando sin pantalla/B-Roll")
 
     # Create session
     ensure_session_dirs(WORKSPACE_ROOT, session_id)
     session = session_manager.create_session(
         session_id=session_id,
         topic=topic,
-        profile=profile,
-        goal=goal,
-        tone=tone,
         duration=duration,
     )
-    session.camera_file = camera_path
-    session.screen_file = screen_path
+    session.video_file = video_path
     session_manager.save_session(session)
 
     menus.print_success(f"Sesion '{session_id}' creada")
-    menus.print_info(f"Archivos: {camera_path}, {screen_path}")
+    menus.print_info(f"Video: {video_path}")
 
     # Ask to run pipeline
     if menus.confirm_continue("Ejecutar pipeline ahora?"):
