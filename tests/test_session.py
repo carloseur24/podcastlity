@@ -11,12 +11,12 @@ class TestSessionManager:
     def test_session_manager_init(self, workspace_root):
         sm = session.SessionManager(str(workspace_root))
         assert sm.workspace_root == workspace_root
-        assert sm.sessions_dir == workspace_root / "recordings"
+        assert sm.sessions_dir == workspace_root / "data" / "recordings"
 
     def test_get_session_path(self, workspace_root):
         sm = session.SessionManager(str(workspace_root))
         path = sm.get_session_path("test123")
-        assert path == workspace_root / "recordings" / "test123"
+        assert path == workspace_root / "data" / "recordings" / "test123"
 
     def test_session_exists_false(self, workspace_root):
         sm = session.SessionManager(str(workspace_root))
@@ -47,7 +47,7 @@ class TestSessionManager:
         new_session = sm.create_session(
             session_id="new_session",
             topic="Test Topic",
-            profile="shorts",
+            profile="default",
             goal="entretenimiento",
             tone="casual",
             cta="Like y subscribe",
@@ -56,7 +56,7 @@ class TestSessionManager:
 
         assert new_session.session_id == "new_session"
         assert new_session.topic == "Test Topic"
-        assert new_session.profile == "shorts"
+        assert new_session.profile == "default"
         assert new_session.goal == "entretenimiento"
         assert new_session.tone == "casual"
         assert new_session.cta == "Like y subscribe"
@@ -72,11 +72,13 @@ class TestSessionManager:
         sm = session.SessionManager(str(workspace_root))
         sm.save_session(Session(**mock_session))
 
-        sm.save_session(Session(
-            session_id="second_session",
-            topic="Another Topic",
-            profile="longform",
-        ))
+        sm.save_session(
+            Session(
+                session_id="second_session",
+                topic="Another Topic",
+                profile="default",
+            )
+        )
 
         sessions = sm.list_sessions()
         assert len(sessions) == 2
@@ -102,11 +104,13 @@ class TestSessionManager:
 
     def test_get_next_stage_at_end(self, workspace_root):
         sm = session.SessionManager(str(workspace_root))
-        sm.save_session(Session(
-            session_id="done_session",
-            topic="Done",
-            status="done",
-        ))
+        sm.save_session(
+            Session(
+                session_id="done_session",
+                topic="Done",
+                status="done",
+            )
+        )
 
         next_stage = sm.get_next_stage("done_session")
         assert next_stage is None
@@ -128,17 +132,12 @@ class TestLoadSettings:
 
 
 class TestLoadProfile:
-    def test_load_profile_longform(self, workspace_root):
-        profile = session.load_profile("longform", str(workspace_root))
+    def test_load_profile_default(self, workspace_root):
+        profile = session.load_profile("default", str(workspace_root))
         assert profile["aspect_ratio"] == "16:9"
-        assert profile["silence_threshold_db"] == -42
+        assert profile["silence_threshold_db"] == -40
 
-    def test_load_profile_shorts(self, workspace_root):
-        profile = session.load_profile("shorts", str(workspace_root))
-        assert profile["aspect_ratio"] == "9:16"
-        assert profile["target_duration_s"] == 90
-
-    def test_load_profile_fallback_to_longform(self, workspace_root):
+    def test_load_profile_fallback_to_default(self, workspace_root):
         profile = session.load_profile("nonexistent", str(workspace_root))
         assert profile["aspect_ratio"] == "16:9"
 
@@ -167,17 +166,17 @@ class TestEnsureSessionDirs:
         session_id = "test_dirs_session"
         session.ensure_session_dirs(str(workspace_root), session_id)
 
+        # New path structure: data/recordings and output/*
         expected_dirs = [
-            workspace_root / "recordings" / session_id,
-            workspace_root / "proxies" / session_id,
-            workspace_root / "audio" / session_id,
-            workspace_root / "transcripts" / session_id,
-            workspace_root / "analysis" / session_id,
-            workspace_root / "cutmaps" / session_id,
-            workspace_root / "exports" / session_id,
-            workspace_root / "thumbnails" / session_id / "frame_grabs",
-            workspace_root / "briefs" / session_id,
-            workspace_root / "metadata" / session_id,
+            workspace_root / "data" / "recordings" / session_id,
+            workspace_root / "output" / "proxies" / session_id,
+            workspace_root / "output" / "audio" / session_id,
+            workspace_root / "output" / "transcripts" / session_id,
+            workspace_root / "output" / "analysis" / session_id,
+            workspace_root / "output" / "cutmaps" / session_id,
+            workspace_root / "output" / "exports" / session_id,
+            workspace_root / "output" / "thumbnails" / session_id / "frame_grabs",
+            workspace_root / "output" / "briefs" / session_id,
         ]
 
         for d in expected_dirs:
@@ -188,4 +187,4 @@ class TestEnsureSessionDirs:
         session.ensure_session_dirs(str(workspace_root), session_id)
         session.ensure_session_dirs(str(workspace_root), session_id)
 
-        assert (workspace_root / "recordings" / session_id).exists()
+        assert (workspace_root / "data" / "recordings" / session_id).exists()

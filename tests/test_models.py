@@ -30,13 +30,13 @@ class TestSession:
         session = Session(session_id="test", topic="Test Topic")
         assert session.session_id == "test"
         assert session.topic == "Test Topic"
-        assert session.profile == "longform"
+        assert session.profile == "default"
         assert session.status == "created"
-        assert session.platform_targets == ["youtube_lf", "shorts"]
+        assert session.platform_targets == ["youtube_lf"]
 
     def test_session_valid_profile(self):
-        session = Session(session_id="test", topic="Topic", profile="shorts")
-        assert session.profile == "shorts"
+        session = Session(session_id="test", topic="Topic", profile="default")
+        assert session.profile == "default"
 
     def test_session_invalid_profile(self):
         with pytest.raises(ValidationError):
@@ -76,7 +76,7 @@ class TestTranscriptSegment:
             words=[
                 Word(word="Hola", start=0.0, end=0.5, probability=0.9),
                 Word(word="mundo", start=0.5, end=1.0, probability=0.9),
-            ]
+            ],
         )
         assert segment.id == 1
         assert len(segment.words) == 2
@@ -96,7 +96,7 @@ class TestTranscript:
             segments=[
                 TranscriptSegment(id=1, start=0.0, end=5.0, text="First"),
                 TranscriptSegment(id=2, start=5.0, end=10.0, text="Second"),
-            ]
+            ],
         )
         assert t.duration == 10.0
         assert len(t.segments) == 2
@@ -105,10 +105,7 @@ class TestTranscript:
 class TestSilenceInterval:
     def test_silence_interval(self):
         si = SilenceInterval(
-            start=10.0,
-            end=15.0,
-            duration=5.0,
-            type="between_sentences"
+            start=10.0, end=15.0, duration=5.0, type="between_sentences"
         )
         assert si.start == 10.0
         assert si.end == 15.0
@@ -125,13 +122,7 @@ class TestSilenceMap:
 
 class TestFillerWord:
     def test_filler_word(self):
-        fw = FillerWord(
-            word="eh",
-            start=5.0,
-            end=5.5,
-            segment_id=1,
-            confidence=0.8
-        )
+        fw = FillerWord(word="eh", start=5.0, end=5.5, segment_id=1, confidence=0.8)
         assert fw.word == "eh"
         assert fw.confidence == 0.8
 
@@ -188,7 +179,7 @@ class TestKeepInterval:
 class TestCutMap:
     def test_cut_map_defaults(self):
         cm = CutMap()
-        assert cm.profile == "shorts"
+        assert cm.profile == "default"
         assert cm.total_input_duration_s == 0.0
         assert cm.total_output_duration_s == 0.0
         assert cm.keep_intervals == []
@@ -197,11 +188,11 @@ class TestCutMap:
 
     def test_cut_map_with_intervals(self):
         cm = CutMap(
-            profile="longform",
+            profile="default",
             keep_intervals=[
                 KeepInterval(start=0.0, end=10.0),
                 KeepInterval(start=15.0, end=25.0),
-            ]
+            ],
         )
         assert len(cm.keep_intervals) == 2
 
@@ -221,7 +212,7 @@ class TestBriefThumbnailConcept:
             subtexto="2024",
             emocion="sorpresa",
             colores=["rojo", "amarillo"],
-            composicion="center_text"
+            composicion="center_text",
         )
         assert tc.texto_principal == "GUIA COMPLETA"
 
@@ -229,10 +220,7 @@ class TestBriefThumbnailConcept:
 class TestBriefSceneOutline:
     def test_brief_scene_outline(self):
         scene = BriefSceneOutline(
-            id=1,
-            titulo="Intro",
-            descripcion="Introduction scene",
-            duracion_s=30
+            id=1, titulo="Intro", descripcion="Introduction scene", duracion_s=30
         )
         assert scene.id == 1
         assert scene.duracion_s == 30
@@ -256,12 +244,14 @@ class TestBrief:
                 subtexto="Sub",
                 emocion="feliz",
                 colores=["azul"],
-                composicion="test"
+                composicion="test",
             ),
             scene_outline=[
-                BriefSceneOutline(id=1, titulo="Scene 1", descripcion="Desc", duracion_s=30)
+                BriefSceneOutline(
+                    id=1, titulo="Scene 1", descripcion="Desc", duracion_s=30
+                )
             ],
-            motion_style="energetico"
+            motion_style="energetico",
         )
         assert len(brief.titles) == 1
         assert len(brief.hooks) == 1
@@ -281,7 +271,7 @@ class TestMetadata:
             titles=["Title 1", "Title 2"],
             hooks=["Hook 1"],
             descriptions={"youtube": "Description for YT"},
-            tags={"youtube": ["tag1", "tag2"]}
+            tags={"youtube": ["tag1", "tag2"]},
         )
         assert len(m.titles) == 2
         assert m.descriptions["youtube"] == "Description for YT"
@@ -299,9 +289,7 @@ class TestModelIdempotency:
     def test_transcript_idempotent(self):
         t1 = Transcript(
             duration=10.0,
-            segments=[
-                TranscriptSegment(id=1, start=0.0, end=5.0, text="Test")
-            ]
+            segments=[TranscriptSegment(id=1, start=0.0, end=5.0, text="Test")],
         )
         json_str = t1.model_dump_json()
         t2 = Transcript.model_validate_json(json_str)
