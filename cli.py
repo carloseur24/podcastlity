@@ -45,16 +45,13 @@ def run_new_session() -> None:
         menus.print_error("Tema requerido")
         return
 
-    # Step 3: Profile
-    profile = menus.prompt_profile()
-
-    # Step 4: Goal
+    # Step 3: Goal
     goal = menus.prompt_goal()
 
-    # Step 5: Tone
+    # Step 4: Tone
     tone = menus.prompt_tone()
 
-    # Step 6: Duration (convert float minutes to int)
+    # Step 5: Duration (convert float minutes to int)
     duration_minutes = menus.prompt_duration()
     duration = int(round(duration_minutes))
 
@@ -316,7 +313,7 @@ def run_continue_session() -> None:
         menus.console.print(f"\n[bold cyan]=== {session_id} ===[/bold cyan]")
         menus.console.print(f"Estado: [yellow]{current_stage}[/yellow]")
         menus.console.print(
-            f"Perfil: {session.profile or 'longform'} | Tema: {session.topic}"
+            f"Perfil: {session.profile or 'default'} | Tema: {session.topic}"
         )
         menus.console.print()
         menus.console.print("  1. [green]Ejecutar todo el pipeline[/green]")
@@ -369,7 +366,7 @@ def run_pipeline(session_id: str) -> None:
 def run_single_stage(session_id: str) -> None:
     session = session_manager.load_session(session_id)
 
-    profile = session.profile or "longform"
+    profile = session.profile or "default"
     stages = pipeline.get_stages_for_profile(profile)
 
     menus.console.print("\n[bold]Etapas disponibles:[/bold]")
@@ -482,7 +479,7 @@ def preview_audio(session_id: str) -> None:
 
     menus.console.print(f"\n[bold cyan]=== Preview Audio ===[/bold cyan]\n")
     menus.console.print(f"Session: [yellow]{session_id}[/yellow]")
-    menus.console.print(f"Perfil: {session.profile or 'longform'}")
+    menus.console.print(f"Perfil: {session.profile or 'default'}")
     menus.console.print(f"Audio: [green]{clean_audio.name}[/green]")
 
     if report_file.exists():
@@ -621,10 +618,10 @@ def run_audio_settings() -> None:
             )
         )
         menus.console.print(
-            "[bold]6. Loudnorm:[/bold] longform=I:{} TP:{} LRA:{}".format(
-                loud.get("longform", {}).get("I"),
-                loud.get("longform", {}).get("TP"),
-                loud.get("longform", {}).get("LRA"),
+            "[bold]6. Loudnorm:[/bold] default=I:{} TP:{} LRA:{}".format(
+                loud.get("default", {}).get("I"),
+                loud.get("default", {}).get("TP"),
+                loud.get("default", {}).get("LRA"),
             )
         )
         menus.console.print()
@@ -707,20 +704,17 @@ def run_audio_settings() -> None:
         elif choice == "6":
             menus.console.print("\n[bold]Loudnorm:[/bold]")
             new_i = menus.Prompt.ask(
-                "I target (-3 a -20)", default=str(loud.get("longform", {}).get("I"))
+                "I target (-3 a -20)", default=str(loud.get("default", {}).get("I"))
             )
             new_tp = menus.Prompt.ask(
-                "True Peak (-0.5 a -3)", default=str(loud.get("longform", {}).get("TP"))
+                "True Peak (-0.5 a -3)", default=str(loud.get("default", {}).get("TP"))
             )
             new_lra = menus.Prompt.ask(
-                "LRA (4-15)", default=str(loud.get("longform", {}).get("LRA"))
+                "LRA (4-15)", default=str(loud.get("default", {}).get("LRA"))
             )
-            filters["loudnorm"]["longform"]["I"] = int(new_i)
-            filters["loudnorm"]["longform"]["TP"] = float(new_tp)
-            filters["loudnorm"]["longform"]["LRA"] = int(new_lra)
-            filters["loudnorm"]["shorts"]["I"] = int(new_i) + 2
-            filters["loudnorm"]["shorts"]["TP"] = float(new_tp)
-            filters["loudnorm"]["shorts"]["LRA"] = int(new_lra) - 3
+            filters["loudnorm"]["default"]["I"] = int(new_i)
+            filters["loudnorm"]["default"]["TP"] = float(new_tp)
+            filters["loudnorm"]["default"]["LRA"] = int(new_lra)
 
         filters_file.write_text(json.dumps(filters, indent=2))
         reset_config()
