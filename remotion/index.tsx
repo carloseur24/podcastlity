@@ -1,4 +1,4 @@
-import { AbsoluteFill, Audio, Video } from 'remotion';
+import { registerRoot, Composition, AbsoluteFill, Audio, Video, staticFile } from 'remotion';
 import { KineticSubtitle } from './components/SubtitleLayer';
 import type { SubtitlePreset } from './components/SubtitleLayer';
 
@@ -11,19 +11,23 @@ interface MainCompositionProps {
   fps: number;
 }
 
-export const MainComposition: React.FC<MainCompositionProps> = ({
+const MainComposition: React.FC<MainCompositionProps> = ({
   videoSrc,
   audioSrc,
   captions,
   preset,
-  durationInFrames,
-  fps,
 }) => {
+  // Use staticFile() to properly serve local video files
+  // videoSrc should be a relative path like "public/video.mp4"
+  const videoSource = videoSrc.startsWith('/') || videoSrc.startsWith('http') 
+    ? videoSrc 
+    : staticFile(videoSrc);
+  
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
       {/* Video */}
       <Video
-        src={videoSrc}
+        src={videoSource}
         style={{ width: '100%', height: '100%' }}
       />
       
@@ -41,45 +45,19 @@ export const MainComposition: React.FC<MainCompositionProps> = ({
   );
 };
 
-// Default props for development
-export const defaultProps = {
-  videoSrc: '',
-  captions: [],
-  preset: {
-    name: 'Kinetic Pop',
-    description: 'Default kinetic preset',
-    engine: 'remotion',
-    animation: {
-      type: 'word_by_word' as const,
-      entrance: 'pop_in',
-      timing: 'sync_to_speech',
-      combine_tokens_ms: 800,
-      spring: { damping: 12, stiffness: 180 }
-    },
-    style: {
-      font_family: 'Inter',
-      font_size: 36,
-      font_weight: 700,
-      text_color: '#FFFFFF',
-      stroke_color: '#000000',
-      stroke_width: 2,
-      background: 'rounded_box',
-      bg_color: '#000000',
-      bg_opacity: 0.7,
-      padding_x: 24,
-      padding_y: 16,
-      border_radius: 12
-    },
-    position: {
-      anchor: 'bottom_center',
-      y_offset: 120
-    },
-    highlight: {
-      enabled: true,
-      color: '#FFD700',
-      words: ['important', 'key', 'main']
-    }
-  },
-  durationInFrames: 1800,
-  fps: 30
+// Export Composition for Remotion CLI
+export const RemotionRoot = () => {
+  return (
+    <Composition
+      id="Main"
+      component={MainComposition}
+      durationInFrames={30 * 60}
+      fps={30}
+      width={1920}
+      height={1080}
+    />
+  );
 };
+
+// Register the root component
+registerRoot(RemotionRoot);
