@@ -9,14 +9,9 @@ class Session(BaseModel):
     topic: str
     platform_targets: list[str] = Field(default_factory=lambda: ["youtube_lf"])
     profile: Literal["default"] | None = "default"
-    goal: str = "educativo"
-    tone: str = "directo"
     cta: str = "Suscribete"
     rough_duration_min: int = 10
-    camera_file: str = ""
-    screen_file: str = ""
-    sync_offset_seconds: float = 0.0
-    sync_method: Literal["manual", "auto"] = "manual"
+    video_file: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
     status: (
         Literal[
