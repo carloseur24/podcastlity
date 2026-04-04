@@ -15,11 +15,23 @@
   },
   "devDependencies": {
     "@types/react": "^18.2.0",
+    "prettier": "^3.8.1",
     "typescript": "^5.0.0"
   },
   "scripts": {
     "build": "remotion bundle index.tsx Main --out-dir build",
     "preview": "remotion studio",
-    "render": "remotion render index.tsx Main"
+    "render": "remotion render index.tsx Main",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx}\""
+  },
+  "prettier": {
+    "semi": true,
+    "singleQuote": false,
+    "tabWidth": 2,
+    "trailingComma": "es5",
+    "printWidth": 100,
+    "bracketSpacing": true,
+    "arrowParens": "avoid"
   }
 }
