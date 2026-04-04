@@ -32,9 +32,11 @@ class Pipeline:
     Pipeline orchestrator for video content processing.
 
     Coordinates all stages and provides callbacks for UI integration.
+    Single pipeline - no shorts/longform distinction.
     """
 
-    LONGFORM_STAGES = [
+    # Single pipeline - all stages in order
+    STAGES = [
         StageInfo("Ingest", "ingested", ingest, "Copy files to session directory"),
         StageInfo("Proxies", "proxied", proxies, "Create proxies and extract audio"),
         StageInfo(
@@ -43,23 +45,6 @@ class Pipeline:
         StageInfo("Transcribe", "transcribed", transcribe, "Whisper speech-to-text"),
         StageInfo("Analyze", "analyzed", analyze, "Silence/filler/energy detection"),
         StageInfo("Cutmap", "cutmapped", cutmap, "Generate edit decisions"),
-        StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
-        StageInfo(
-            "Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"
-        ),
-        StageInfo("Export", "exported", export, "Render final videos"),
-    ]
-
-    SHORTS_STAGES = [
-        StageInfo("Ingest", "ingested", ingest, "Copy files to session directory"),
-        StageInfo("Proxies", "proxied", proxies, "Create proxies and extract audio"),
-        StageInfo(
-            "VoiceExtract",
-            "voice_extracted",
-            voice_extract,
-            "Extract voice + noise reduction",
-        ),
-        StageInfo("Prepare", "cutmapped", None, "Analyze + cutmap"),
         StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
         StageInfo(
             "Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"
@@ -77,11 +62,9 @@ class Pipeline:
         self.workspace = workspace
         self.session_manager = SessionManager(workspace)
 
-    def get_stages_for_profile(self, profile: str) -> list[StageInfo]:
-        """Get stage list for profile."""
-        if profile == "shorts":
-            return self.SHORTS_STAGES
-        return self.LONGFORM_STAGES
+    def get_stages_for_profile(self, profile: str = "default") -> list[StageInfo]:
+        """Get stage list - single pipeline for all profiles."""
+        return self.STAGES
 
     def run_full(
         self,
@@ -103,8 +86,7 @@ class Pipeline:
         except FileNotFoundError:
             raise SessionNotFoundError(f"Session '{session_id}' not found")
 
-        profile = session.profile or "longform"
-        stages = self.get_stages_for_profile(profile)
+        stages = self.STAGES
 
         current_status = session.status or "created"
 
@@ -120,10 +102,7 @@ class Pipeline:
                 on_progress(stage.name, "running")
 
             try:
-                if stage.name == "Prepare" and profile == "shorts":
-                    result = self._run_prepare(session_id)
-                else:
-                    result = stage.module.run(session_id, self.workspace)
+                result = stage.module.run(session_id, self.workspace)
 
                 results[stage.status_key] = result
 
