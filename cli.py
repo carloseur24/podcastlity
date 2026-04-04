@@ -19,6 +19,7 @@ from scripts.utils.session import SessionManager, load_settings, ensure_session_
 from scripts.utils import filepicker
 from scripts.core import Pipeline
 from scripts.config import ConfigProvider, reset_config
+from scripts.preset_manager import get_preset_manager
 
 
 WORKSPACE_ROOT = str(PROJECT_ROOT)
@@ -469,7 +470,10 @@ def preview_audio(session_id: str) -> None:
         Path(WORKSPACE_ROOT) / "analysis" / session_id / "preprocess_report.json"
     )
 
-    if not voice_audio.exists() and not raw_audio.exists():
+    # Determine which audio file exists
+    clean_audio = voice_audio if voice_audio.exists() else raw_audio
+
+    if not clean_audio.exists():
         menus.print_warning("Audio no encontrado")
         menus.print_info("Ejecuta 'Proxies' primero")
         return
@@ -742,6 +746,526 @@ def run_audio_preview_select() -> None:
         menus.print_error(f"Sesion '{session_id}' no encontrada")
 
 
+# ============================================================================
+# NEW STAGE FUNCTIONS - Stage 1, 3, 4
+# ============================================================================
+
+
+def run_stage_1_audio() -> None:
+    """Stage 1: Audio Processing - Select session and process audio (NO transcription)."""
+    sessions = session_manager.list_sessions()
+
+    if not sessions:
+        menus.print_warning("No hay sesiones")
+        menus.print_info("Crea una sesión primero (Opción 1)")
+        return
+
+    menus.console.print("\n[bold cyan]=== Stage 1: Procesar Audio ===[/bold cyan]\n")
+    menus.print_session_list(sessions)
+
+    session_id = menus.prompt_session_id()
+    if not session_id:
+        return
+
+    try:
+        session = session_manager.load_session(session_id)
+    except FileNotFoundError:
+        menus.print_error(f"Sesión '{session_id}' no encontrada")
+        return
+
+    menus.console.print(f"\n[bold]Procesando audio para {session_id}...[/bold]")
+    menus.print_info("Esto incluye: extracción de audio + reducción de ruido")
+    menus.print_info("NO incluye transcripción (eso se hace en Stage 3)")
+
+    try:
+        # Stage 1: Audio processing ONLY (Proxies + VoiceExtract)
+        # NO transcription here - that's Stage 3
+        menus.console.print("\n[bold]1/2: Extrayendo audio...[/bold]")
+        pipeline.run_stage(session_id, "Proxies")
+
+        menus.console.print("[bold]2/2: Reduciendo ruido y normalizando...[/bold]")
+        pipeline.run_stage(session_id, "VoiceExtract")
+
+        menus.print_success("Audio procesado correctamente")
+        menus.print_info(
+            "Listo para edición manual. Luego usa Stage 3 para subtítulos."
+        )
+    except Exception as e:
+        menus.print_error(f"Error procesando audio: {e}")
+
+
+def run_stage_3_subtitles() -> None:
+    """Stage 3: Subtitles - Select session, video, transcribe (if needed), render with Remotion."""
+    sessions = session_manager.list_sessions()
+
+    if not sessions:
+        menus.print_warning("No hay sesiones")
+        menus.print_info("Crea una sesión primero")
+        return
+
+    menus.console.print(
+        "\n[bold magenta]=== Stage 3: Agregar Subtítulos ===[/bold magenta]\n"
+    )
+    menus.print_session_list(sessions)
+
+    session_id = menus.prompt_session_id()
+    if not session_id:
+        return
+
+    try:
+        session = session_manager.load_session(session_id)
+    except FileNotFoundError:
+        menus.print_error(f"Sesión '{session_id}' no encontrada")
+        return
+
+    # List video files in session
+    session_dir = Path(WORKSPACE_ROOT) / "recordings" / session_id
+    proxies_dir = Path(WORKSPACE_ROOT) / "proxies" / session_id
+    exports_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+
+    video_files = []
+    for d in [session_dir, proxies_dir, exports_dir]:
+        if d.exists():
+            video_files.extend(list(d.glob("*.mp4")))
+            video_files.extend(list(d.glob("*.mkv")))
+            # Exclude already processed videos
+            video_files = [
+                v
+                for v in video_files
+                if not v.name.startswith(("subtitled_", "colored_"))
+            ]
+
+    if not video_files:
+        menus.print_warning("No hay videos disponibles en esta sesión")
+        menus.print_info("Primero ejecuta Stage 1 (Procesar Audio)")
+        return
+
+    # Show video files
+    menus.console.print("\n[bold]Videos disponibles:[/bold]")
+    for i, v in enumerate(video_files, 1):
+        size = v.stat().st_size / 1024 / 1024
+        menus.console.print(f"  {i}. [cyan]{v.name}[/cyan] ({size:.1f} MB)")
+
+    choice = menus.Prompt.ask(
+        "\n[bold]Selecciona video (0 para cancelar)[/bold]",
+        choices=["0"] + [str(i) for i in range(1, len(video_files) + 1)],
+        default="1",
+    )
+
+    if choice == "0":
+        return
+
+    selected_video = video_files[int(choice) - 1]
+    menus.print_info(f"Video seleccionado: {selected_video.name}")
+
+    # Check or generate transcription
+    transcript_file = (
+        Path(WORKSPACE_ROOT) / "transcripts" / session_id / "segments.json"
+    )
+
+    if transcript_file.exists():
+        menus.print_info(f"Transcripción encontrada: {transcript_file.name}")
+        reuse_transcript = menus.Confirm.ask(
+            "\n[bold]¿Reusar transcripción existente?[/bold] (s/n)", default=True
+        )
+        if not reuse_transcript:
+            menus.print_info("Generando nueva transcripción...")
+            transcript_file = None  # Will regenerate
+    else:
+        transcript_file = None
+        menus.print_info("No hay transcripción. Generando...")
+
+    # Generate transcription if needed
+    if transcript_file is None:
+        try:
+            menus.console.print("\n[bold]Transcribiendo audio con Whisper...[/bold]")
+
+            # Extract audio if not exists
+            audio_dir = Path(WORKSPACE_ROOT) / "audio" / session_id
+            audio_path = audio_dir / "master_voice.wav"
+
+            if not audio_path.exists():
+                audio_path = audio_dir / "master.wav"
+
+            if not audio_path.exists():
+                menus.print_error("Audio no encontrado. Ejecuta Stage 1 primero.")
+                return
+
+            # Run whisper transcription
+            pipeline.run_stage(session_id, "Transcribe")
+
+            # Check if transcription was created
+            transcript_file = (
+                Path(WORKSPACE_ROOT) / "transcripts" / session_id / "segments.json"
+            )
+            if transcript_file.exists():
+                menus.print_success("Transcripción creada")
+            else:
+                menus.print_error("Error al generar transcripción")
+                return
+
+        except Exception as e:
+            menus.print_error(f"Error transcribiendo: {e}")
+            return
+
+    # Select preset
+    pm = get_preset_manager(WORKSPACE_ROOT)
+    subtitle_presets = pm.list_subtitle_presets()
+
+    menus.console.print("\n[bold]Presets de subtítulos disponibles:[/bold]")
+    for i, p in enumerate(subtitle_presets, 1):
+        read_only = "[readonly]" if p["read_only"] else ""
+        menus.console.print(f"  {i}. {p['display_name']} {read_only}")
+        menus.console.print(f"      [dim]{p['description']}[/dim]")
+
+    preset_choice = menus.Prompt.ask(
+        "\n[bold]Selecciona preset (0 para cancelar)[/bold]",
+        choices=["0"] + [str(i) for i in range(1, len(subtitle_presets) + 1)],
+        default="1",
+    )
+
+    if preset_choice == "0":
+        return
+
+    selected_preset = subtitle_presets[int(preset_choice) - 1]
+    preset_name = selected_preset["name"]
+
+    menus.print_info(f"Preset: {selected_preset['display_name']}")
+
+    # Ask for range (optional)
+    use_range = menus.Confirm.ask(
+        "\n[bold]¿Usar rango de tiempo?[/bold] (s/n)", default=False
+    )
+
+    start_sec = None
+    end_sec = None
+    if use_range:
+        start_sec = menus.Prompt.ask("Segundo inicial", default="0")
+        end_sec = menus.Prompt.ask("Segundo final", default="")
+        start_sec = int(start_sec)
+        if end_sec:
+            end_sec = int(end_sec)
+
+    # Ask for resolution
+    menus.console.print("\n[bold]Resolución:[/bold]")
+    menus.console.print("  1. [cyan]144p[/cyan] (proxy - más rápido)")
+    menus.console.print("  2. [cyan]480p[/cyan] (proxy)")
+    menus.console.print("  3. [cyan]1080p[/cyan] (calidad)")
+    menus.console.print("  4. [cyan]4k[/cyan] (máxima calidad)")
+
+    res_choice = menus.Prompt.ask(
+        "\n[bold]Selecciona resolución[/bold]",
+        choices=["1", "2", "3", "4"],
+        default="2",
+    )
+
+    resolution_map = {"1": "144p", "2": "480p", "3": "1080p", "4": "4k"}
+    resolution = resolution_map[res_choice]
+
+    # Run Remotion via subprocess
+    import subprocess
+
+    # Paths
+    remotion_dir = Path(WORKSPACE_ROOT) / "remotion"
+    video_path = selected_video.absolute()
+    captions_path = transcript_file.absolute()
+    preset_path = remotion_dir / "config" / "presets" / f"{preset_name}.json"
+
+    # If preset doesn't exist in remotion folder, use default
+    if not preset_path.exists():
+        preset_path = remotion_dir / "config" / "presets" / "test_preset.json"
+
+    # Output path
+    output_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_filename = f"subtitled_{selected_video.stem}_{resolution}.mp4"
+    output_path = output_dir / output_filename
+
+    # Build CLI command
+    cmd = [
+        "node",
+        "cli.js",
+        str(video_path),
+        str(captions_path),
+        str(preset_path),
+        "-r",
+        resolution,
+    ]
+
+    if start_sec is not None:
+        cmd.extend(["-s", str(start_sec)])
+    if end_sec is not None:
+        cmd.extend(["-e", str(end_sec)])
+
+    menus.console.print(f"\n[bold cyan]Ejecutando Remotion...[/bold cyan]")
+    menus.console.print(f"[dim]Comando: {' '.join(cmd)}[/dim]")
+
+    try:
+        result = subprocess.run(
+            cmd,
+            cwd=str(remotion_dir),
+            capture_output=True,
+            text=True,
+            timeout=600,
+        )
+
+        if result.returncode == 0:
+            menus.print_success("Subtítulos renderizados correctamente")
+        else:
+            menus.print_error(f"Error en renderizado: {result.stderr}")
+    except subprocess.TimeoutExpired:
+        menus.print_error("Tiempo de renderizado agotado")
+    except Exception as e:
+        menus.print_error(f"Error ejecutando Remotion: {e}")
+
+
+def run_stage_4_coloring() -> None:
+    """Stage 4: Coloring - Select session, video, apply color preset."""
+    sessions = session_manager.list_sessions()
+
+    if not sessions:
+        menus.print_warning("No hay sesiones")
+        return
+
+    menus.console.print("\n[bold yellow]=== Stage 4: Coloración ===[/bold yellow]\n")
+    menus.print_session_list(sessions)
+
+    session_id = menus.prompt_session_id()
+    if not session_id:
+        return
+
+    # List video files in session
+    session_dir = Path(WORKSPACE_ROOT) / "recordings" / session_id
+    exports_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+
+    video_files = []
+    for d in [session_dir, exports_dir]:
+        if d.exists():
+            video_files.extend(list(d.glob("*.mp4")))
+            video_files.extend(list(d.glob("*.mkv")))
+
+    if not video_files:
+        menus.print_warning("No hay videos en esta sesión")
+        return
+
+    # Show video files
+    menus.console.print("\n[bold]Videos disponibles:[/bold]")
+    for i, v in enumerate(video_files, 1):
+        size = v.stat().st_size / 1024 / 1024
+        menus.console.print(f"  {i}. [cyan]{v.name}[/cyan] ({size:.1f} MB)")
+
+    choice = menus.Prompt.ask(
+        "\n[bold]Selecciona video (0 para cancelar)[/bold]",
+        choices=["0"] + [str(i) for i in range(1, len(video_files) + 1)],
+        default="1",
+    )
+
+    if choice == "0":
+        return
+
+    selected_video = video_files[int(choice) - 1]
+
+    # Select color preset
+    pm = get_preset_manager(WORKSPACE_ROOT)
+    color_preset = pm.get_default_color_preset()
+
+    subpresets = color_preset.get("presets", {})
+    scales = color_preset.get("scales", {})
+
+    menus.console.print("\n[bold]Presets de color (base):[/bold]")
+    for i, (name, data) in enumerate(subpresets.items(), 1):
+        menus.console.print(
+            f"  {i}. [cyan]{data['name']}[/cyan] - {data['description']}"
+        )
+
+    preset_choice = menus.Prompt.ask(
+        "\n[bold]Selecciona preset de color[/bold]",
+        choices=["1", "2", "3"],
+        default="1",
+    )
+
+    subpreset_names = list(subpresets.keys())
+    selected_subpreset = subpreset_names[int(preset_choice) - 1]
+
+    # Select scale
+    menus.console.print("\n[bold]Escala de color:[/bold]")
+    menus.console.print("  0. [cyan]Sin escala[/cyan]")
+    for i, (name, data) in enumerate(scales.items(), 1):
+        menus.console.print(f"  {i}. {name} (temp: {data.get('temperature', 0)})")
+
+    scale_choice = menus.Prompt.ask(
+        "\n[bold]Selecciona escala (0 para ninguna)[/bold]",
+        choices=["0"] + [str(i) for i in range(1, len(scales) + 1)],
+        default="0",
+    )
+
+    selected_scale = None
+    if scale_choice != "0":
+        scale_names = list(scales.keys())
+        selected_scale = scale_names[int(scale_choice) - 1]
+
+    menus.console.print(
+        f"\n[bold cyan]Aplicando color: {selected_subpreset}[/bold cyan]"
+    )
+    if selected_scale:
+        menus.print_info(f"Escala: {selected_scale}")
+
+    # Run color grading via FFmpeg
+    from scripts.utils import ffmpeg
+
+    output_dir = Path(WORKSPACE_ROOT) / "exports" / session_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_filename = f"colored_{selected_video.stem}.mp4"
+    output_path = output_dir / output_filename
+
+    try:
+        # Simple color grading - adjust brightness/contrast/saturation
+        ffmpeg.adjust_video_colors(
+            str(selected_video.absolute()),
+            str(output_path),
+            brightness=0.02,
+            contrast=1.05,
+            saturation=1.1,
+            temperature=15
+            if selected_subpreset == "warm"
+            else (-15 if selected_subpreset == "cold" else 0),
+        )
+        menus.print_success(f"Video coloreado: {output_path.name}")
+    except Exception as e:
+        menus.print_error(f"Error aplicando color: {e}")
+
+
+def run_presets_menu() -> None:
+    """Presets management menu."""
+    pm = get_preset_manager(WORKSPACE_ROOT)
+
+    while True:
+        menus.console.print("\n[bold cyan]=== Gestión de Presets ===[/bold cyan]\n")
+
+        menus.console.print("  1. [cyan]Ver presets de Subtítulos[/cyan]")
+        menus.console.print("  2. [cyan]Ver presets de Audio[/cyan]")
+        menus.console.print("  3. [cyan]Ver presets de Color[/cyan]")
+        menus.console.print("  4. [cyan]Crear preset[/cyan]")
+        menus.console.print("  5. [cyan]Editar preset[/cyan]")
+        menus.console.print("  6. [cyan]Eliminar preset[/cyan]")
+        menus.console.print("  0. [dim]Volver[/dim]")
+
+        choice = menus.Prompt.ask(
+            "\n[bold]Selecciona opción[/bold]",
+            choices=["0", "1", "2", "3", "4", "5", "6"],
+            default="0",
+        )
+
+        if choice == "0":
+            break
+        elif choice == "1":
+            # List subtitle presets
+            presets = pm.list_subtitle_presets()
+            menus.console.print("\n[bold]Presets de Subtítulos:[/bold]")
+            for p in presets:
+                marker = (
+                    " [default]"
+                    if p["is_default"]
+                    else " [readonly]"
+                    if p["read_only"]
+                    else ""
+                )
+                menus.console.print(f"  • {p['display_name']}{marker}")
+                menus.console.print(f"    [dim]{p['description']}[/dim]")
+        elif choice == "2":
+            # List audio presets
+            presets = pm.list_audio_presets()
+            menus.console.print("\n[bold]Presets de Audio:[/bold]")
+            for p in presets:
+                marker = (
+                    " [default]"
+                    if p["is_default"]
+                    else " [readonly]"
+                    if p["read_only"]
+                    else ""
+                )
+                menus.console.print(f"  • {p['display_name']}{marker}")
+                menus.console.print(f"    [dim]{p['description']}[/dim]")
+        elif choice == "3":
+            # List color presets
+            presets = pm.list_color_presets()
+            menus.console.print("\n[bold]Presets de Color:[/bold]")
+            for p in presets:
+                marker = (
+                    " [default]"
+                    if p["is_default"]
+                    else " [readonly]"
+                    if p["read_only"]
+                    else ""
+                )
+                menus.console.print(f"  • {p['display_name']}{marker}")
+                menus.console.print(f"    [dim]{p['description']}[/dim]")
+        elif choice == "4":
+            # Create preset
+            menus.console.print("\n[bold]Crear nuevo preset:[/bold]")
+            menus.console.print("  1. [cyan]Subtítulo[/cyan]")
+            menus.console.print("  2. [cyan]Audio[/cyan]")
+            menus.console.print("  3. [cyan]Color[/cyan]")
+
+            ptype = menus.Prompt.ask(
+                "\n[bold]Tipo de preset[/bold]",
+                choices=["1", "2", "3"],
+            )
+
+            ptype_map = {"1": "subtitle", "2": "audio", "3": "color"}
+            preset_type = ptype_map[ptype]
+
+            name = menus.Prompt.ask("Nombre del preset")
+            description = menus.Prompt.ask("Descripción")
+
+            # For now, clone from default
+            if preset_type == "subtitle":
+                default = pm.get_default_subtitle_preset()
+                default["name"] = name
+                default["description"] = description
+                default.pop("read_only", None)
+                default.pop("is_default", None)
+                success = pm.create_subtitle_preset(name, default)
+            elif preset_type == "audio":
+                default = pm.get_default_audio_preset()
+                default["name"] = name
+                default["description"] = description
+                default.pop("read_only", None)
+                default.pop("is_default", None)
+                success = pm.create_audio_preset(name, default)
+            else:
+                default = pm.get_default_color_preset()
+                default["name"] = name
+                default["description"] = description
+                default.pop("read_only", None)
+                default.pop("is_default", None)
+                success = pm.create_color_preset(name, default)
+
+            if success:
+                menus.print_success(f"Preset '{name}' creado")
+            else:
+                menus.print_error("Error creando preset")
+
+        elif choice == "5":
+            # Edit preset
+            menus.console.print(
+                "\n[bold]Editar preset (no editable el default):[/bold]"
+            )
+            menus.print_warning("Función no implementada aún")
+
+        elif choice == "6":
+            # Delete preset
+            menus.console.print(
+                "\n[bold]Eliminar preset (no puede ser default):[/bold]"
+            )
+            menus.print_warning("Función no implementada aún")
+
+
+# ============================================================================
+# MAIN
+# ============================================================================
+
+
 def main():
     menus.clear_screen()
     menus.print_header()
@@ -767,11 +1291,20 @@ def main():
                 list_sessions()
             elif choice == "4":
                 menus.clear_screen()
-                run_settings()
+                run_stage_1_audio()
             elif choice == "5":
                 menus.clear_screen()
-                run_audio_settings()
+                run_stage_3_subtitles()
             elif choice == "6":
+                menus.clear_screen()
+                run_stage_4_coloring()
+            elif choice == "7":
+                menus.clear_screen()
+                run_presets_menu()
+            elif choice == "8":
+                menus.clear_screen()
+                run_settings()
+            elif choice == "9":
                 menus.clear_screen()
                 run_audio_preview_select()
 
