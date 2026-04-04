@@ -1,0 +1,23 @@
+{
+  "name": "mvp-editing-pipeline-remotion",
+  "version": "1.0.0",
+  "description": "Remotion components for kinetic subtitle animations",
+  "main": "index.tsx",
+  "dependencies": {
+    "@remotion/cli": "^4.0.0",
+    "@remotion/captions": "^4.0.0",
+    "@remotion/renderer": "^4.0.0",
+    "remotion": "^4.0.0",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.0",
+    "typescript": "^5.0.0"
+  },
+  "scripts": {
+    "build": "remotion render index.tsx Main output.mp4",
+    "preview": "remotion studio",
+    "render": "remotion render index.tsx Main"
+  }
+}
