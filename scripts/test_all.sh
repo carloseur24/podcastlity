@@ -4,8 +4,9 @@
 # Usage: ./scripts/test_all.sh [options]
 # Options: format, test, test:quick, test:all
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_ROOT="$SCRIPT_DIR"
+# Get project root (parent of scripts directory)
+PROJECT_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+cd "$PROJECT_ROOT"
 
 # Colors
 RED='\033[0;31m'
@@ -15,10 +16,11 @@ NC='\033[0m' # No Color
 
 # Activate venv helper
 activate_venv() {
-    if [ -d "$PROJECT_ROOT/.venv" ]; then
-        source "$PROJECT_ROOT/.venv/bin/activate"
+    VENV_PATH="$PROJECT_ROOT/.venv"
+    if [ -d "$VENV_PATH" ]; then
+        source "$VENV_PATH/bin/activate"
     else
-        echo -e "${RED}Virtual environment not found${NC}"
+        echo -e "${RED}Virtual environment not found at $VENV_PATH${NC}"
         exit 1
     fi
 }
