@@ -4,23 +4,20 @@ Content-OS CLI
 Menu-driven video content pipeline
 """
 
-import os
 import sys
-from pathlib import Path
 from datetime import datetime
-from typing import Optional
+from pathlib import Path
 
 # Add project root to path
 PROJECT_ROOT = Path(__file__).parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
-from scripts.ui import menus
-from scripts.utils.session import SessionManager, load_settings, ensure_session_dirs
-from scripts.utils import filepicker
-from scripts.core import Pipeline
 from scripts.config import ConfigProvider, reset_config
+from scripts.core import Pipeline
 from scripts.preset_manager import get_preset_manager
-
+from scripts.ui import menus
+from scripts.utils import filepicker
+from scripts.utils.session import SessionManager, ensure_session_dirs, load_settings
 
 WORKSPACE_ROOT = str(PROJECT_ROOT)
 settings = load_settings(WORKSPACE_ROOT)
@@ -56,18 +53,14 @@ def run_new_session() -> None:
     duration = int(round(duration_minutes))
 
     # Step 7: Camera file
-    menus.console.print(
-        "\n[bold cyan]=== Seleccionar archivo de camara ===[/bold cyan]"
-    )
+    menus.console.print("\n[bold cyan]=== Seleccionar archivo de camara ===[/bold cyan]")
     camera_path = run_file_picker("camera")
     if not camera_path:
         menus.print_error("Archivo de camara requerido")
         return
 
     # Step 8: Screen file (optional - for b-roll/screen capture)
-    menus.console.print(
-        "\n[bold cyan]=== Archivo de pantalla/B-Roll (opcional) ===[/bold cyan]"
-    )
+    menus.console.print("\n[bold cyan]=== Archivo de pantalla/B-Roll (opcional) ===[/bold cyan]")
     menus.console.print("  1. [cyan]Si[/cyan] - tengo archivo de pantalla o B-Roll")
     menus.console.print("  2. [cyan]No[/cyan] - solo tengo camara")
 
@@ -107,14 +100,12 @@ def run_new_session() -> None:
         run_pipeline(session_id)
 
 
-def run_file_picker(purpose: str, exclude: Optional[str] = None) -> Optional[str]:
+def run_file_picker(purpose: str, exclude: str | None = None) -> str | None:
     """Run file picker with 3 modes: auto, browse, manual"""
     mount = settings.get("recordings_mount", "/mnt/c/Users/carlos/Videos")
 
     while True:
-        menus.console.print(
-            f"\n[bold cyan]Seleccionar archivo ({purpose}):[/bold cyan]"
-        )
+        menus.console.print(f"\n[bold cyan]Seleccionar archivo ({purpose}):[/bold cyan]")
         menus.console.print("  1. [cyan]Auto-detectar[/cyan] en carpeta de grabaciones")
         menus.console.print("  2. [cyan]Explorar[/cyan] directorio")
         menus.console.print("  3. [cyan]Introducir[/cyan] ruta manualmente")
@@ -143,7 +134,7 @@ def run_file_picker(purpose: str, exclude: Optional[str] = None) -> Optional[str
                     menus.print_warning(f"No se encontraron videos en {mount}")
                 continue
 
-            menus.console.print(f"\n[bold]Videos encontrados:[/bold]")
+            menus.console.print("\n[bold]Videos encontrados:[/bold]")
             for i, v in enumerate(videos, 1):
                 menus.console.print(f"  {i}. [cyan]{v.name}[/cyan] ({v.size_mb} MB)")
 
@@ -166,14 +157,10 @@ def run_file_picker(purpose: str, exclude: Optional[str] = None) -> Optional[str
             current_path = mount
 
             while True:
-                entries, current = filepicker.browse_directory(
-                    current_path, show_hidden=False
-                )
+                entries, current = filepicker.browse_directory(current_path, show_hidden=False)
 
                 if not entries:
-                    menus.print_warning(
-                        "Directorio vacio o solo tiene archivos ocultos"
-                    )
+                    menus.print_warning("Directorio vacio o solo tiene archivos ocultos")
                     if current == "/":
                         break
                     current_path = filepicker.navigate_to_parent(current)
@@ -187,12 +174,8 @@ def run_file_picker(purpose: str, exclude: Optional[str] = None) -> Optional[str
                 menus.console.print()
 
                 # Group: directories first, then videos
-                dirs = [
-                    (i + 1, e[0], e[1], e[2]) for i, e in enumerate(entries) if e[2]
-                ]
-                videos = [
-                    (i + 1, e[0], e[1], e[2]) for i, e in enumerate(entries) if not e[2]
-                ]
+                dirs = [(i + 1, e[0], e[1], e[2]) for i, e in enumerate(entries) if e[2]]
+                videos = [(i + 1, e[0], e[1], e[2]) for i, e in enumerate(entries) if not e[2]]
 
                 # Show directories
                 if dirs:
@@ -235,18 +218,10 @@ def run_file_picker(purpose: str, exclude: Optional[str] = None) -> Optional[str
 
                 if idx == "h":
                     # Toggle hidden files
-                    entries, current = filepicker.browse_directory(
-                        current_path, show_hidden=True
-                    )
+                    entries, current = filepicker.browse_directory(current_path, show_hidden=True)
                     # Re-process with hidden
-                    dirs = [
-                        (i + 1, e[0], e[1], e[2]) for i, e in enumerate(entries) if e[2]
-                    ]
-                    videos = [
-                        (i + 1, e[0], e[1], e[2])
-                        for i, e in enumerate(entries)
-                        if not e[2]
-                    ]
+                    dirs = [(i + 1, e[0], e[1], e[2]) for i, e in enumerate(entries) if e[2]]
+                    videos = [(i + 1, e[0], e[1], e[2]) for i, e in enumerate(entries) if not e[2]]
                     all_nums = [str(n) for n, _, _, _ in dirs + videos]
                     continue
 
@@ -312,9 +287,7 @@ def run_continue_session() -> None:
 
         menus.console.print(f"\n[bold cyan]=== {session_id} ===[/bold cyan]")
         menus.console.print(f"Estado: [yellow]{current_stage}[/yellow]")
-        menus.console.print(
-            f"Perfil: {session.profile or 'default'} | Tema: {session.topic}"
-        )
+        menus.console.print(f"Perfil: {session.profile or 'default'} | Tema: {session.topic}")
         menus.console.print()
         menus.console.print("  1. [green]Ejecutar todo el pipeline[/green]")
         menus.console.print("  2. [cyan]Ejecutar etapa especifica[/cyan]")
@@ -344,9 +317,7 @@ def run_continue_session() -> None:
 
 
 def run_pipeline(session_id: str) -> None:
-    menus.console.print(
-        f"\n[bold cyan]Ejecutando pipeline para {session_id}...[/bold cyan]\n"
-    )
+    menus.console.print(f"\n[bold cyan]Ejecutando pipeline para {session_id}...[/bold cyan]\n")
 
     def on_progress(stage_name: str, status: str):
         if status == "running":
@@ -440,9 +411,7 @@ def preview_session(session_id: str) -> None:
     for i, v in enumerate(videos, 1):
         menus.console.print(f"  {i}. {v.name}")
 
-    idx = menus.Prompt.ask(
-        "\n[bold]Selecciona video (0 para cancelar)[/bold]", default=""
-    )
+    idx = menus.Prompt.ask("\n[bold]Selecciona video (0 para cancelar)[/bold]", default="")
     if not idx or idx == "0":
         return
 
@@ -455,19 +424,15 @@ def preview_session(session_id: str) -> None:
 
 
 def preview_audio(session_id: str) -> None:
-    import subprocess
     import json
+    import subprocess
 
     session = session_manager.load_session(session_id)
 
     # Use master_voice.wav (VAD extracted + cleaned) or fallback to master.wav
-    voice_audio = (
-        Path(WORKSPACE_ROOT) / "output" / "audio" / session_id / "master_voice.wav"
-    )
+    voice_audio = Path(WORKSPACE_ROOT) / "output" / "audio" / session_id / "master_voice.wav"
     raw_audio = Path(WORKSPACE_ROOT) / "output" / "audio" / session_id / "master.wav"
-    report_file = (
-        Path(WORKSPACE_ROOT) / "analysis" / session_id / "preprocess_report.json"
-    )
+    report_file = Path(WORKSPACE_ROOT) / "analysis" / session_id / "preprocess_report.json"
 
     # Determine which audio file exists
     clean_audio = voice_audio if voice_audio.exists() else raw_audio
@@ -477,7 +442,7 @@ def preview_audio(session_id: str) -> None:
         menus.print_info("Ejecuta 'Proxies' primero")
         return
 
-    menus.console.print(f"\n[bold cyan]=== Preview Audio ===[/bold cyan]\n")
+    menus.console.print("\n[bold cyan]=== Preview Audio ===[/bold cyan]\n")
     menus.console.print(f"Session: [yellow]{session_id}[/yellow]")
     menus.console.print(f"Perfil: {session.profile or 'default'}")
     menus.console.print(f"Audio: [green]{clean_audio.name}[/green]")
@@ -652,15 +617,11 @@ def run_audio_settings() -> None:
 
         elif choice == "2":
             menus.console.print("\n[bold]Denoising (afftdn):[/bold]")
-            new_mild = menus.Prompt.ask(
-                "NR mild (8-15)", default=str(afftdn.get("nr_mild"))
-            )
+            new_mild = menus.Prompt.ask("NR mild (8-15)", default=str(afftdn.get("nr_mild")))
             new_mod = menus.Prompt.ask(
                 "NR moderate (15-25)", default=str(afftdn.get("nr_moderate"))
             )
-            new_heavy = menus.Prompt.ask(
-                "NR heavy (25-40)", default=str(afftdn.get("nr_heavy"))
-            )
+            new_heavy = menus.Prompt.ask("NR heavy (25-40)", default=str(afftdn.get("nr_heavy")))
             filters["afftdn"]["nr_mild"] = int(new_mild)
             filters["afftdn"]["nr_moderate"] = int(new_mod)
             filters["afftdn"]["nr_heavy"] = int(new_heavy)
@@ -683,9 +644,7 @@ def run_audio_settings() -> None:
             new_above = menus.Prompt.ask(
                 "Above floor (4-10 dB)", default=str(gate.get("above_floor_db"))
             )
-            new_ratio = menus.Prompt.ask(
-                "Ratio (4-20)", default=str(gate.get("ratio_heavy"))
-            )
+            new_ratio = menus.Prompt.ask("Ratio (4-20)", default=str(gate.get("ratio_heavy")))
             filters["agate"]["above_floor_db"] = int(new_above)
             filters["agate"]["ratio_heavy"] = int(new_ratio)
 
@@ -783,9 +742,7 @@ def run_stage_1_audio() -> None:
         pipeline.run_stage(session_id, "VoiceExtract")
 
         menus.print_success("Audio procesado correctamente")
-        menus.print_info(
-            "Listo para edición manual. Luego usa Stage 3 para subtítulos."
-        )
+        menus.print_info("Listo para edición manual. Luego usa Stage 3 para subtítulos.")
     except Exception as e:
         menus.print_error(f"Error procesando audio: {e}")
 
@@ -799,9 +756,7 @@ def run_stage_3_subtitles() -> None:
         menus.print_info("Crea una sesión primero")
         return
 
-    menus.console.print(
-        "\n[bold magenta]=== Stage 3: Agregar Subtítulos ===[/bold magenta]\n"
-    )
+    menus.console.print("\n[bold magenta]=== Stage 3: Agregar Subtítulos ===[/bold magenta]\n")
     menus.print_session_list(sessions)
 
     session_id = menus.prompt_session_id()
@@ -826,9 +781,7 @@ def run_stage_3_subtitles() -> None:
             video_files.extend(list(d.glob("*.mkv")))
             # Exclude already processed videos
             video_files = [
-                v
-                for v in video_files
-                if not v.name.startswith(("subtitled_", "colored_"))
+                v for v in video_files if not v.name.startswith(("subtitled_", "colored_"))
             ]
 
     if not video_files:
@@ -855,9 +808,7 @@ def run_stage_3_subtitles() -> None:
     menus.print_info(f"Video seleccionado: {selected_video.name}")
 
     # Check or generate transcription
-    transcript_file = (
-        Path(WORKSPACE_ROOT) / "output" / "transcripts" / session_id / "segments.json"
-    )
+    transcript_file = Path(WORKSPACE_ROOT) / "output" / "transcripts" / session_id / "segments.json"
 
     if transcript_file.exists():
         menus.print_info(f"Transcripción encontrada: {transcript_file.name}")
@@ -891,9 +842,7 @@ def run_stage_3_subtitles() -> None:
             pipeline.run_stage(session_id, "Transcribe")
 
             # Check if transcription was created
-            transcript_file = (
-                Path(WORKSPACE_ROOT) / "transcripts" / session_id / "segments.json"
-            )
+            transcript_file = Path(WORKSPACE_ROOT) / "transcripts" / session_id / "segments.json"
             if transcript_file.exists():
                 menus.print_success("Transcripción creada")
             else:
@@ -929,9 +878,7 @@ def run_stage_3_subtitles() -> None:
     menus.print_info(f"Preset: {selected_preset['display_name']}")
 
     # Ask for range (optional)
-    use_range = menus.Confirm.ask(
-        "\n[bold]¿Usar rango de tiempo?[/bold] (s/n)", default=False
-    )
+    use_range = menus.Confirm.ask("\n[bold]¿Usar rango de tiempo?[/bold] (s/n)", default=False)
 
     start_sec = None
     end_sec = None
@@ -993,7 +940,7 @@ def run_stage_3_subtitles() -> None:
     if end_sec is not None:
         cmd.extend(["-e", str(end_sec)])
 
-    menus.console.print(f"\n[bold cyan]Ejecutando Remotion...[/bold cyan]")
+    menus.console.print("\n[bold cyan]Ejecutando Remotion...[/bold cyan]")
     menus.console.print(f"[dim]Comando: {' '.join(cmd)}[/dim]")
 
     try:
@@ -1070,9 +1017,7 @@ def run_stage_4_coloring() -> None:
 
     menus.console.print("\n[bold]Presets de color (base):[/bold]")
     for i, (name, data) in enumerate(subpresets.items(), 1):
-        menus.console.print(
-            f"  {i}. [cyan]{data['name']}[/cyan] - {data['description']}"
-        )
+        menus.console.print(f"  {i}. [cyan]{data['name']}[/cyan] - {data['description']}")
 
     preset_choice = menus.Prompt.ask(
         "\n[bold]Selecciona preset de color[/bold]",
@@ -1100,9 +1045,7 @@ def run_stage_4_coloring() -> None:
         scale_names = list(scales.keys())
         selected_scale = scale_names[int(scale_choice) - 1]
 
-    menus.console.print(
-        f"\n[bold cyan]Aplicando color: {selected_subpreset}[/bold cyan]"
-    )
+    menus.console.print(f"\n[bold cyan]Aplicando color: {selected_subpreset}[/bold cyan]")
     if selected_scale:
         menus.print_info(f"Escala: {selected_scale}")
 
@@ -1160,11 +1103,7 @@ def run_presets_menu() -> None:
             menus.console.print("\n[bold]Presets de Subtítulos:[/bold]")
             for p in presets:
                 marker = (
-                    " [default]"
-                    if p["is_default"]
-                    else " [readonly]"
-                    if p["read_only"]
-                    else ""
+                    " [default]" if p["is_default"] else " [readonly]" if p["read_only"] else ""
                 )
                 menus.console.print(f"  • {p['display_name']}{marker}")
                 menus.console.print(f"    [dim]{p['description']}[/dim]")
@@ -1174,11 +1113,7 @@ def run_presets_menu() -> None:
             menus.console.print("\n[bold]Presets de Audio:[/bold]")
             for p in presets:
                 marker = (
-                    " [default]"
-                    if p["is_default"]
-                    else " [readonly]"
-                    if p["read_only"]
-                    else ""
+                    " [default]" if p["is_default"] else " [readonly]" if p["read_only"] else ""
                 )
                 menus.console.print(f"  • {p['display_name']}{marker}")
                 menus.console.print(f"    [dim]{p['description']}[/dim]")
@@ -1188,11 +1123,7 @@ def run_presets_menu() -> None:
             menus.console.print("\n[bold]Presets de Color:[/bold]")
             for p in presets:
                 marker = (
-                    " [default]"
-                    if p["is_default"]
-                    else " [readonly]"
-                    if p["read_only"]
-                    else ""
+                    " [default]" if p["is_default"] else " [readonly]" if p["read_only"] else ""
                 )
                 menus.console.print(f"  • {p['display_name']}{marker}")
                 menus.console.print(f"    [dim]{p['description']}[/dim]")
@@ -1244,16 +1175,12 @@ def run_presets_menu() -> None:
 
         elif choice == "5":
             # Edit preset
-            menus.console.print(
-                "\n[bold]Editar preset (no editable el default):[/bold]"
-            )
+            menus.console.print("\n[bold]Editar preset (no editable el default):[/bold]")
             menus.print_warning("Función no implementada aún")
 
         elif choice == "6":
             # Delete preset
-            menus.console.print(
-                "\n[bold]Eliminar preset (no puede ser default):[/bold]"
-            )
+            menus.console.print("\n[bold]Eliminar preset (no puede ser default):[/bold]")
             menus.print_warning("Función no implementada aún")
 
 
@@ -1305,19 +1232,13 @@ def main():
                 run_audio_preview_select()
 
             if choice != "0":
-                menus.Prompt.ask(
-                    "\n[dim]Presiona Enter para continuar...[/dim]", default=""
-                )
+                menus.Prompt.ask("\n[dim]Presiona Enter para continuar...[/dim]", default="")
 
         except KeyboardInterrupt:
-            menus.console.print(
-                "\n\n[bold yellow]Ctrl+C detectado. Saliendo...[/bold yellow]\n"
-            )
+            menus.console.print("\n\n[bold yellow]Ctrl+C detectado. Saliendo...[/bold yellow]\n")
             break
         except EOFError:
-            menus.console.print(
-                "\n\n[bold yellow]Entrada cerrada. Saliendo...[/bold yellow]\n"
-            )
+            menus.console.print("\n\n[bold yellow]Entrada cerrada. Saliendo...[/bold yellow]\n")
             break
 
 
