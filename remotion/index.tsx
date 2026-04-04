@@ -1,4 +1,4 @@
-import { registerRoot, Composition, AbsoluteFill, Audio, Video, staticFile } from 'remotion';
+import { registerRoot, Composition, AbsoluteFill, Audio, OffthreadVideo, staticFile, getInputProps } from 'remotion';
 import { KineticSubtitle } from './components/SubtitleLayer';
 import type { SubtitlePreset } from './components/SubtitleLayer';
 
@@ -9,27 +9,28 @@ interface MainCompositionProps {
   preset: SubtitlePreset;
   durationInFrames: number;
   fps: number;
+  width: number;
+  height: number;
 }
 
-const MainComposition: React.FC<MainCompositionProps> = ({
-  videoSrc,
-  audioSrc,
-  captions,
-  preset,
-}) => {
+// Inner component that can use hooks
+const MainComposition: React.FC = () => {
+  const inputProps = getInputProps<MainCompositionProps>();
+  
+  const { videoSrc, audioSrc, captions, preset } = inputProps;
+  
   // Use staticFile() to load video from public folder
-  // This works because the video is in the public/ folder and gets bundled
-  // The video filename is extracted from the absolute path
-  const videoFilename = videoSrc.split('/').pop() || 'input_video.mp4';
+  const videoFilename = videoSrc?.split('/').pop() || 'input_video.mp4';
   const videoSource = staticFile(videoFilename);
   
   console.log('[Remotion] Video source:', videoSource);
   console.log('[Remotion] Video filename:', videoFilename);
+  console.log('[Remotion] Captions count:', captions?.length || 0);
   
   return (
     <AbsoluteFill style={{ backgroundColor: '#000' }}>
-      {/* Video */}
-      <Video
+      {/* Video - Using OffthreadVideo for FFmpeg-based frame extraction */}
+      <OffthreadVideo
         src={videoSource}
         style={{ width: '100%', height: '100%' }}
       />
@@ -48,16 +49,25 @@ const MainComposition: React.FC<MainCompositionProps> = ({
   );
 };
 
-// Export Composition for Remotion CLI
+// Get duration from input props for Composition
+const getCompositionDuration = () => {
+  const props = getInputProps<MainCompositionProps>();
+  return props.durationInFrames || 30 * 60;
+};
+
+// Export Composition - duration will be set dynamically
 export const RemotionRoot = () => {
+  const durationInFrames = getCompositionDuration();
+  const props = getInputProps<MainCompositionProps>();
+  
   return (
     <Composition
       id="Main"
       component={MainComposition}
-      durationInFrames={30 * 60}
-      fps={30}
-      width={1920}
-      height={1080}
+      durationInFrames={durationInFrames}
+      fps={props.fps || 30}
+      width={props.width || 1920}
+      height={props.height || 1080}
     />
   );
 };
