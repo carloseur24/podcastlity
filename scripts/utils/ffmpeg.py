@@ -11,7 +11,7 @@ from scripts.config import get_config
 def get_ffmpeg_path() -> str:
     config = get_config()
     ffmpeg_path = config.get_ffmpeg_path()
-    
+
     if ffmpeg_path == "imageio":
         return imageio_ffmpeg.get_ffmpeg_exe()
     return ffmpeg_path
@@ -41,11 +41,7 @@ def run_ffmpeg(
 
 
 def get_duration(video_path: str) -> float:
-    cmd = [
-        get_ffmpeg_path(),
-        "-i", video_path,
-        "-f", "null", "-"
-    ]
+    cmd = [get_ffmpeg_path(), "-i", video_path, "-f", "null", "-"]
     result = subprocess.run(
         cmd,
         capture_output=True,
@@ -64,16 +60,41 @@ def extract_audio(
     video_path: str,
     output_path: str,
     mono: bool = True,
-    sample_rate: int = 16000,
+    sample_rate: int = 48000,
 ) -> None:
     args = ["-y", "-i", video_path]
     if mono:
         args.extend(["-vn", "-ac", "1"])
-    args.extend([
-        "-ar", str(sample_rate),
-        "-sample_fmt", "s16",
-        output_path
-    ])
+    args.extend(["-ar", str(sample_rate), "-sample_fmt", "s16", output_path])
+    run_ffmpeg(args)
+
+
+def extract_audio_segment(
+    audio_path: str,
+    output_path: str,
+    start: float,
+    end: float,
+    sample_rate: int = 48000,
+) -> None:
+    """Extract a segment from an audio file (like trim_video but for audio)."""
+    duration = end - start
+    args = [
+        "-y",
+        "-ss",
+        str(start),
+        "-t",
+        str(duration),
+        "-i",
+        audio_path,
+        "-vn",
+        "-ac",
+        "1",
+        "-ar",
+        str(sample_rate),
+        "-sample_fmt",
+        "s16",
+        output_path,
+    ]
     run_ffmpeg(args)
 
 
@@ -85,14 +106,22 @@ def create_proxy(
     preset: str = "ultrafast",
 ) -> None:
     args = [
-        "-y", "-i", input_path,
-        "-vf", f"scale={resolution.replace('x', ':')}",
-        "-c:v", "libx264",
-        "-preset", preset,
-        "-crf", str(crf),
-        "-c:a", "aac",
-        "-b:a", "128k",
-        output_path
+        "-y",
+        "-i",
+        input_path,
+        "-vf",
+        f"scale={resolution.replace('x', ':')}",
+        "-c:v",
+        "libx264",
+        "-preset",
+        preset,
+        "-crf",
+        str(crf),
+        "-c:a",
+        "aac",
+        "-b:a",
+        "128k",
+        output_path,
     ]
     run_ffmpeg(args)
 
@@ -108,11 +137,21 @@ def trim_video(
     if copy:
         args.extend(["-c", "copy", output_path])
     else:
-        args.extend([
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-c:a", "aac", "-b:a", "192k",
-            output_path
-        ])
+        args.extend(
+            [
+                "-c:v",
+                "libx264",
+                "-preset",
+                "fast",
+                "-crf",
+                "23",
+                "-c:a",
+                "aac",
+                "-b:a",
+                "192k",
+                output_path,
+            ]
+        )
     run_ffmpeg(args)
 
 
@@ -123,13 +162,49 @@ def concat_videos(
     list_file = Path(output_path).parent / "concat_temp.txt"
     with open(list_file, "w") as f:
         for path in input_list:
-            f.write(f"file '{path}'\n")
-    
+            # Use absolute path to avoid directory issues
+            abs_path = str(Path(path).resolve())
+            f.write(f"file '{abs_path}'\n")
+
     args = [
-        "-y", "-f", "concat", "-safe", "0",
-        "-i", str(list_file),
-        "-c", "copy",
-        output_path
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(list_file),
+        "-c",
+        "copy",
+        output_path,
+    ]
+    run_ffmpeg(args)
+    list_file.unlink(missing_ok=True)
+
+
+def concat_audio(
+    input_list: list[str],
+    output_path: str,
+) -> None:
+    """Concatenate multiple audio files into one."""
+    list_file = Path(output_path).parent / "concat_audio_temp.txt"
+    with open(list_file, "w") as f:
+        for path in input_list:
+            # Use absolute path to avoid directory issues
+            abs_path = str(Path(path).resolve())
+            f.write(f"file '{abs_path}'\n")
+
+    args = [
+        "-y",
+        "-f",
+        "concat",
+        "-safe",
+        "0",
+        "-i",
+        str(list_file),
+        "-c:a",
+        "pcm_s16le",
+        output_path,
     ]
     run_ffmpeg(args)
     list_file.unlink(missing_ok=True)
@@ -142,30 +217,39 @@ def burn_subtitles(
     crf: int = 22,
 ) -> None:
     args = [
-        "-y", "-i", video_path,
-        "-vf", f"ass={subtitle_path}",
-        "-c:v", "libx264", "-preset", "fast", "-crf", str(crf),
-        "-c:a", "copy",
-        output_path
+        "-y",
+        "-i",
+        video_path,
+        "-vf",
+        f"ass={subtitle_path}",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "fast",
+        "-crf",
+        str(crf),
+        "-c:a",
+        "copy",
+        output_path,
     ]
     run_ffmpeg(args)
 
 
 def get_resolution(video_path: str) -> tuple[int, int]:
-    cmd = [
-        get_ffmpeg_path(),
-        "-i", video_path,
-        "-f", "ffmetadata", "-"
-    ]
+    cmd = [get_ffmpeg_path(), "-i", video_path, "-f", "ffmetadata", "-"]
     result = subprocess.run(cmd, capture_output=True, text=True)
     # Use ffprobe for cleaner solution
     cmd = [
         get_ffmpeg_path().replace("ffmpeg", "ffprobe"),
-        "-v", "error",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=width,height",
-        "-of", "json",
-        video_path
+        "-v",
+        "error",
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=width,height",
+        "-of",
+        "json",
+        video_path,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     try:
@@ -182,11 +266,16 @@ def extract_frame(
     quality: int = 2,
 ) -> None:
     args = [
-        "-y", "-ss", str(timestamp),
-        "-i", video_path,
-        "-vframes", "1",
-        "-q:v", str(quality),
-        output_path
+        "-y",
+        "-ss",
+        str(timestamp),
+        "-i",
+        video_path,
+        "-vframes",
+        "1",
+        "-q:v",
+        str(quality),
+        output_path,
     ]
     run_ffmpeg(args)
 
@@ -197,11 +286,18 @@ def apply_loudnorm(
     target_lufs: float = -14.0,
 ) -> None:
     args = [
-        "-y", "-i", input_path,
-        "-af", f"loudnorm=I={target_lufs}:TP=-1:LRA=7",
-        "-c:v", "copy",
-        "-c:a", "aac", "-b:a", "192k",
-        output_path
+        "-y",
+        "-i",
+        input_path,
+        "-af",
+        f"loudnorm=I={target_lufs}:TP=-1:LRA=7",
+        "-c:v",
+        "copy",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        output_path,
     ]
     run_ffmpeg(args)
 
@@ -209,12 +305,16 @@ def apply_loudnorm(
 def get_frame_count(video_path: str) -> int:
     cmd = [
         get_ffmpeg_path().replace("ffmpeg", "ffprobe"),
-        "-v", "error",
+        "-v",
+        "error",
         "-count_frames",
-        "-select_streams", "v:0",
-        "-show_entries", "stream=nb_read_frames",
-        "-of", "default=noprint_wrappers=1:nokey=1",
-        video_path
+        "-select_streams",
+        "v:0",
+        "-show_entries",
+        "stream=nb_read_frames",
+        "-of",
+        "default=noprint_wrappers=1:nokey=1",
+        video_path,
     ]
     result = subprocess.run(cmd, capture_output=True, text=True)
     try:
@@ -239,36 +339,40 @@ def enhance_audio(
     - Ensure stereo
     """
     filters = []
-    
+
     # Noise reduction: highpass to remove rumble, lowpass to remove hiss
     if noise_reduce:
         filters.append("highpass=f=80")
         filters.append("lowpass=f=8000")
         filters.append("afftdn=nf=-25")  # Noise floor -25dB
-    
+
     # Simple EQ - boost bass slightly, gentle presence
     if eq:
-        filters.append("equalizer=f=100:t=h:g=3")   # Bass +3dB
+        filters.append("equalizer=f=100:t=h:g=3")  # Bass +3dB
         filters.append("equalizer=f=3000:t=h:g=-1")  # Slight cut at 3kHz
-    
+
     # Normalize loudness to -16 LUFS (standard for speech)
     if normalize:
         filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
-    
+
     # Ensure stereo
     if ensure_stereo:
         filters.append("aresample=matrix_encoding=dplii")
-    
+
     # Build filter chain
     filter_chain = ",".join(filters)
-    
+
     args = [
         "-y",
-        "-i", input_path,
-        "-af", filter_chain,
-        "-c:a", "pcm_s16le",
-        "-c:v", "copy",
-        output_path
+        "-i",
+        input_path,
+        "-af",
+        filter_chain,
+        "-c:a",
+        "pcm_s16le",
+        "-c:v",
+        "copy",
+        output_path,
     ]
     run_ffmpeg(args)
 
@@ -284,26 +388,39 @@ def export_full_quality(
     Uses CRF 18 (high quality) instead of proxy quality.
     """
     args = ["-y"]
-    
+
     if start is not None and end is not None:
         args.extend(["-ss", str(start), "-to", str(end)])
-    
+
     args.extend(["-i", input_path])
-    
+
     # High quality encode
-    args.extend([
-        "-c:v", "libx264", "-preset", "slow", "-crf", "18",
-        "-c:a", "aac", "-b:a", "256k",
-        "-movflags", "+faststart",
-        output_path
-    ])
+    args.extend(
+        [
+            "-c:v",
+            "libx264",
+            "-preset",
+            "slow",
+            "-crf",
+            "18",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "256k",
+            "-movflags",
+            "+faststart",
+            output_path,
+        ]
+    )
     run_ffmpeg(args)
 
 
-def replace_audio(video_path: str, audio_path: str, output_path: str, stereo_widen: bool = False) -> None:
+def replace_audio(
+    video_path: str, audio_path: str, output_path: str, stereo_widen: bool = False
+) -> None:
     """
     Replace audio track in video with new audio file.
-    
+
     Args:
         video_path: Input video file
         audio_path: Input audio file (mono)
@@ -312,33 +429,51 @@ def replace_audio(video_path: str, audio_path: str, output_path: str, stereo_wid
     """
     if stereo_widen:
         from scripts.config import get_config
+
         config = get_config()
         stereo_cfg = config.get_stereo_settings()
         m_val = stereo_cfg.get("extrastereo_m", 1.5)
-        
+
         args = [
             "-y",
-            "-i", video_path,
-            "-i", audio_path,
-            "-c:v", "copy",
-            "-af", f"extrastereo=m={m_val}",
-            "-c:a", "aac", "-b:a", "256k",
-            "-map", "0:v:0",
-            "-map", "1:a:0",
+            "-i",
+            video_path,
+            "-i",
+            audio_path,
+            "-c:v",
+            "copy",
+            "-af",
+            f"extrastereo=m={m_val}",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "256k",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
             "-shortest",
-            output_path
+            output_path,
         ]
     else:
         args = [
             "-y",
-            "-i", video_path,
-            "-i", audio_path,
-            "-c:v", "copy",
-            "-c:a", "aac", "-b:a", "256k",
-            "-map", "0:v:0",
-            "-map", "1:a:0",
+            "-i",
+            video_path,
+            "-i",
+            audio_path,
+            "-c:v",
+            "copy",
+            "-c:a",
+            "aac",
+            "-b:a",
+            "256k",
+            "-map",
+            "0:v:0",
+            "-map",
+            "1:a:0",
             "-shortest",
-            output_path
+            output_path,
         ]
     run_ffmpeg(args)
 
@@ -349,9 +484,12 @@ def convert_to_vertical(input_path: str, output_path: str) -> None:
     """
     args = [
         "-y",
-        "-i", input_path,
-        "-vf", "crop=ih*9/16:ih:(iw-iw*9/16)/2:0,scale=1080:1920",
-        "-c:a", "copy",
-        output_path
+        "-i",
+        input_path,
+        "-vf",
+        "crop=ih*9/16:ih:(iw-iw*9/16)/2:0,scale=1080:1920",
+        "-c:a",
+        "copy",
+        output_path,
     ]
     run_ffmpeg(args)
