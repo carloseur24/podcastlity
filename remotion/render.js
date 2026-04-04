@@ -135,7 +135,8 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
       '--codec', 'h264',
       '--crf', '23',
       '--audio-codec', 'aac',
-      '--serve-url', `http://127.0.0.1:${PORT}`
+      '--serve-url', `http://127.0.0.1:${PORT}`,
+      '--offline'
     ];
     
     console.log('[remotion] Running:', cmd.join(' '));
