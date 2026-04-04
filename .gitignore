@@ -62,3 +62,6 @@ config/settings.json
 # Workspace demo artifacts
 workspace_demo/*/
 !workspace_demo/.gitkeep
+
+node_modules/
+vendor/
