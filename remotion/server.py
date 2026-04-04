@@ -1,16 +1,12 @@
 #!/usr/bin/env python3
 """
 Simple HTTP server for Remotion video rendering.
-Serves video files and static content for Remotion's headless browser.
 """
 
 import http.server
 import socketserver
 import os
 import sys
-import time
-import threading
-import json
 
 PORT = 8765
 
@@ -18,41 +14,70 @@ PORT = 8765
 class RemotionHandler(http.server.SimpleHTTPRequestHandler):
     """Custom handler for Remotion video serving."""
 
-    def __init__(self, *args, directory=None, **kwargs):
-        self.video_file = None
-        super().__init__(*args, directory=directory, **kwargs)
-
     def do_GET(self):
-        if self.path == "/video.mp4" and self.video_file:
-            # Serve video file
-            try:
-                with open(self.video_file, "rb") as f:
-                    self.send_response(200)
-                    self.send_header("Content-Type", "video/mp4")
-                    self.send_header("Content-Length", os.path.getsize(self.video_file))
-                    self.send_header("Access-Control-Allow-Origin", "*")
-                    self.end_headers()
-                    self.wfile.write(f.read())
-            except Exception as e:
-                self.send_error(500, str(e))
-        else:
-            # Default: serve static files
-            super().do_GET()
+        if self.path == "/video.mp4" or self.path == "/input_video.mp4":
+            # Try to serve from the video_file class variable or default location
+            video_path = getattr(self.__class__, "video_file", None)
+
+            if not video_path:
+                # Check common locations
+                for candidate in ["public/input_video.mp4", "input_video.mp4"]:
+                    if os.path.exists(candidate):
+                        video_path = candidate
+                        break
+
+            if video_path and os.path.exists(video_path):
+                try:
+                    with open(video_path, "rb") as f:
+                        self.send_response(200)
+                        self.send_header("Content-Type", "video/mp4")
+                        self.send_header("Content-Length", os.path.getsize(video_path))
+                        self.send_header("Access-Control-Allow-Origin", "*")
+                        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+                        self.send_header("Access-Control-Allow-Headers", "*")
+                        self.end_headers()
+                        self.wfile.write(f.read())
+                    return
+                except Exception as e:
+                    self.send_error(500, str(e))
+                    return
+            else:
+                self.send_error(404, f"Video file not found. Tried: {video_path}")
+                return
+        elif self.path == "/":
+            # Serve index.html or list directory
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html")
+            self.end_headers()
+            self.wfile.write(
+                b"<html><body><h1>Remotion Video Server</h1><p>Video available at /video.mp4</p></body></html>"
+            )
+            return
+
+        # Default: try to serve from current directory
+        super().do_GET()
+
+    def do_OPTIONS(self):
+        self.send_response(200)
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, OPTIONS")
+        self.send_header("Access-Control-Allow-Headers", "*")
+        self.end_headers()
 
     def log_message(self, format, *args):
-        # Custom logging
         print(f"[server] {args[0]}")
 
 
 def start_server(video_path, static_dir=None, port=PORT):
     """Start the HTTP server."""
 
-    # Set the video file to serve
+    # Set the video file as class variable
     RemotionHandler.video_file = video_path
 
     # Change to the static directory if provided
     if static_dir and os.path.exists(static_dir):
         os.chdir(static_dir)
+        print(f"[server] Changed directory to: {static_dir}")
 
     # Allow port reuse
     socketserver.TCPServer.allow_reuse_address = True
@@ -62,16 +87,6 @@ def start_server(video_path, static_dir=None, port=PORT):
         print(f"[server] Video: {video_path}")
         print(f"[server] Static: {static_dir or 'N/A'}")
         httpd.serve_forever()
-
-
-def start_server_background(video_path, static_dir=None, port=PORT):
-    """Start server in background thread."""
-    thread = threading.Thread(
-        target=start_server, args=(video_path, static_dir, port), daemon=True
-    )
-    thread.start()
-    time.sleep(1)  # Wait for server to start
-    return port
 
 
 if __name__ == "__main__":

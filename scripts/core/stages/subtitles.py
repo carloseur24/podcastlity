@@ -63,6 +63,11 @@ def run(session_id: str, workspace: str) -> dict:
     export_captions_json(captions, str(captions_file))
     presets_file.write_text(json.dumps(preset_config))
 
+    print(f"[subtitles] Captions file: {captions_file}")
+    print(f"[subtitles] Presets file: {presets_file}")
+    print(f"[subtitles] Captions file exists: {captions_file.exists()}")
+    print(f"[subtitles] Presets file exists: {presets_file.exists()}")
+
     # Find input video (from Assemble stage)
     proxies_dir = workspace_path / "proxies" / session_id
     exports_dir = workspace_path / "exports" / session_id
@@ -123,6 +128,7 @@ def run(session_id: str, workspace: str) -> dict:
 
     print(f"[subtitles] Running Remotion render...")
     print(f"[subtitles] Command: {' '.join(cmd)}")
+    print(f"[subtitles] Working dir: {workspace_path}")
 
     try:
         result = subprocess.run(
@@ -132,6 +138,12 @@ def run(session_id: str, workspace: str) -> dict:
             text=True,
             timeout=600,
         )
+
+        print(f"[subtitles] Return code: {result.returncode}")
+        if result.stdout:
+            print(f"[subtitles] Stdout (first 500): {result.stdout[:500]}")
+        if result.stderr:
+            print(f"[subtitles] Stderr (first 500): {result.stderr[:500]}")
 
         if result.returncode != 0:
             print(f"[subtitles] Remotion stderr: {result.stderr}")

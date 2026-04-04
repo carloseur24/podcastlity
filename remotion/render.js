@@ -81,11 +81,13 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
   
   // Start Python HTTP server with absolute paths
   console.log('[remotion] Starting Python HTTP server...');
+  console.log('[remotion] Public dir:', publicDir);
+  console.log('[remotion] Public video path:', publicVideoPath);
   
   const serverProcess = spawn('python3', [
     path.join(__dirname, 'server.py'),
-    publicVideoPath,  // Absolute path
-    publicDir,       // Absolute path
+    publicVideoPath,
+    publicDir,
     String(PORT)
   ], {
     cwd: __dirname,
@@ -93,11 +95,11 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
   });
   
   serverProcess.stdout.on('data', (data) => {
-    console.log('[server]', data.toString().trim());
+    console.log('[server-out]', data.toString().trim());
   });
   
   serverProcess.stderr.on('data', (data) => {
-    console.log('[server]', data.toString().trim());
+    console.log('[server-err]', data.toString().trim());
   });
   
   // Wait for server to be ready
@@ -120,9 +122,8 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
     const inputPropsPath = path.join(__dirname, 'input-props.json');
     fs.writeFileSync(inputPropsPath, JSON.stringify(inputProps));
     
-    // Use output directory for working dir
-    const outputDir = path.dirname(outputPathAbs);
-    console.log('[remotion] Output dir:', outputDir);
+    // Output path
+    console.log('[remotion] Output path:', outputPathAbs);
     
     // Run Remotion render with external server URL
     const cmd = [
@@ -139,16 +140,26 @@ async function renderVideo(inputPath, outputPath, captionsPath, presetPath, fps,
     
     console.log('[remotion] Running:', cmd.join(' '));
     
-    execSync(cmd.join(' '), {
-      cwd: outputDir,
-      stdio: 'inherit'
-    });
-      for (const p of possiblePaths) {
-        if (fs.existsSync(p)) {
-          console.log('[remotion] Found at:', p);
-          break;
-        }
-      }
+    // Run and capture output
+    try {
+      const result = execSync(cmd.join(' '), {
+        cwd: __dirname,
+        encoding: 'utf8',
+        stdio: ['pipe', 'pipe', 'pipe']
+      });
+      console.log('[remotion] Remotion output:', result.substring(0, 2000));
+    } catch (error) {
+      console.log('[remotion] Remotion stdout:', error.stdout ? error.stdout.substring(0, 2000) : 'None');
+      console.log('[remotion] Remotion stderr:', error.stderr ? error.stderr.substring(0, 2000) : 'None');
+      throw error;
+    }
+    
+    // Check if output file exists
+    if (fs.existsSync(outputPathAbs)) {
+      const stats = fs.statSync(outputPathAbs);
+      console.log('[remotion] Render complete - file size:', stats.size, 'bytes');
+    } else {
+      console.log('[remotion] WARNING: Output file not found at:', outputPathAbs);
     }
     
   } catch (error) {
