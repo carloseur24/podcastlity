@@ -23,7 +23,7 @@ def run(session_id: str, workspace: str) -> dict:
     1. Load transcript and preset for profile
     2. Convert transcript to Remotion Caption format
     3. Export captions and preset to JSON
-    4. Run Remotion render
+    4. Run Remotion render with Python HTTP server
     5. Replace raw video with final
 
     Args:
@@ -50,12 +50,8 @@ def run(session_id: str, workspace: str) -> dict:
     # Load and convert transcript
     transcript = load_transcript(workspace, session_id)
 
-    # Determine caption format based on animation type
-    if preset_config.get("animation", {}).get("type") == "full_line":
-        captions = convert_to_remotion_captions(transcript)
-    else:
-        # Use word-level for kinetic animations
-        captions = convert_to_remotion_captions(transcript)
+    # Convert to Remotion format
+    captions = convert_to_remotion_captions(transcript)
 
     print(f"[subtitles] Converted {len(captions)} caption tokens")
 
@@ -78,6 +74,21 @@ def run(session_id: str, workspace: str) -> dict:
     if not assembled_file.exists():
         raise StageError("subtitles", f"Assembled video not found: {assembled_file}")
 
+    # Check and transcode video if needed (Remotion needs H.264)
+    video_codec = ffmpeg.get_video_codec(str(assembled_file))
+    print(f"[subtitles] Input video codec: {video_codec}")
+
+    remotion_dir = workspace_path / "remotion"
+    input_video = remotion_dir / "input_video.mp4"
+
+    if video_codec != "h264":
+        print(f"[subtitles] Transcoding to H.264 for Remotion compatibility...")
+        ffmpeg.transcode_to_h264_baseline(str(assembled_file), str(input_video))
+    else:
+        import shutil
+
+        shutil.copy(str(assembled_file), str(input_video))
+
     # Get video properties
     duration = ffmpeg.get_duration(str(assembled_file))
     width, height = ffmpeg.get_resolution(str(assembled_file))
@@ -85,11 +96,10 @@ def run(session_id: str, workspace: str) -> dict:
     print(f"[subtitles] Input video: {assembled_file}")
     print(f"[subtitles] Duration: {duration}s, Resolution: {width}x{height}")
 
-    # Output file
-    output_file = exports_dir / f"final_{profile}.mp4"
+    # Output file - use absolute path
+    output_file = (exports_dir / f"final_{profile}.mp4").resolve()
 
     # Run Remotion render
-    remotion_dir = workspace_path / "remotion"
     render_script = remotion_dir / "render.js"
 
     if not render_script.exists():
@@ -101,12 +111,14 @@ def run(session_id: str, workspace: str) -> dict:
     cmd = [
         "node",
         str(render_script),
-        str(assembled_file),  # input
-        str(output_file),  # output
-        str(captions_file),  # captions JSON
-        str(presets_file),  # preset JSON
-        "30",  # fps
-        str(duration),  # duration in seconds
+        str(input_video),
+        str(output_file),
+        str(captions_file),
+        str(presets_file),
+        "30",
+        str(duration),
+        str(width),
+        str(height),
     ]
 
     print(f"[subtitles] Running Remotion render...")
@@ -115,10 +127,10 @@ def run(session_id: str, workspace: str) -> dict:
     try:
         result = subprocess.run(
             cmd,
-            cwd=str(remotion_dir),
+            cwd=str(workspace_path),
             capture_output=True,
             text=True,
-            timeout=600,  # 10 minutes max
+            timeout=600,
         )
 
         if result.returncode != 0:
@@ -135,6 +147,8 @@ def run(session_id: str, workspace: str) -> dict:
         captions_file.unlink()
     if presets_file.exists():
         presets_file.unlink()
+    if input_video.exists():
+        input_video.unlink()
 
     # Update session status
     session.status = "subtitled"
