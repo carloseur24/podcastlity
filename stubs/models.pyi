@@ -8,14 +8,9 @@ class Session:
     topic: str
     platform_targets: list[str]
     profile: Optional[Literal["default"]]
-    goal: str
-    tone: str
     cta: str
     rough_duration_min: int
-    camera_file: str
-    screen_file: str
-    sync_offset_seconds: float
-    sync_method: Literal["manual", "auto"]
+    video_file: str
     created_at: str
     status: Optional[
         Literal[
@@ -39,14 +34,9 @@ class Session:
         topic: str,
         platform_targets: Optional[list[str]] = None,
         profile: Optional[Literal["default"]] = ...,
-        goal: str = ...,
-        tone: str = ...,
         cta: str = ...,
         rough_duration_min: int = ...,
-        camera_file: str = ...,
-        screen_file: str = ...,
-        sync_offset_seconds: float = ...,
-        sync_method: Literal["manual", "auto"] = ...,
+        video_file: str = ...,
         created_at: Optional[str] = None,
         status: Optional[
             Literal[
