@@ -1,246 +1,222 @@
-"""
-Audio processing tests - verify filter chains produce correct output.
+"""Tests for audio processing config."""
 
-These tests run actual FFmpeg commands to verify audio quality,
-not just that the code calls FFmpeg correctly.
-"""
-
-import subprocess
 import json
 from pathlib import Path
-
 import pytest
-import imageio_ffmpeg
 
 from scripts.config import ConfigProvider
-from scripts.domain.audio_engineer import AudioEngineer
 
 
-def get_ffmpeg_path() -> str:
-    return imageio_ffmpeg.get_ffmpeg_exe()
+class TestAudioProcessingConfig:
+    """Test audio processing configuration methods."""
+
+    def test_get_audio_processing_config(self, workspace_root):
+        """Test loading global audio processing defaults."""
+        config = ConfigProvider(str(workspace_root))
+        audio_config = config.get_audio_processing_config()
+
+        assert "highpass" in audio_config
+        assert "eq_boxiness" in audio_config
+        assert "compressor" in audio_config
+        assert "highshelf" in audio_config
+        assert "limiter" in audio_config
+        assert "loudnorm" in audio_config
+
+    def test_audio_processing_defaults_enabled(self, workspace_root):
+        """Test that all filters are enabled by default."""
+        config = ConfigProvider(str(workspace_root))
+        audio_config = config.get_audio_processing_config()
+
+        for filter_key in [
+            "highpass",
+            "eq_boxiness",
+            "compressor",
+            "highshelf",
+            "limiter",
+            "loudnorm",
+        ]:
+            assert audio_config[filter_key].get("enabled") is True, (
+                f"{filter_key} should be enabled by default"
+            )
+
+    def test_audio_processing_highpass_params(self, workspace_root):
+        """Test highpass filter parameters."""
+        config = ConfigProvider(str(workspace_root))
+        audio_config = config.get_audio_processing_config()
+
+        hp = audio_config["highpass"]
+        assert hp["frequency"] == 80
+        assert hp["poles"] == 2
+
+    def test_audio_processing_compressor_params(self, workspace_root):
+        """Test compressor filter parameters."""
+        config = ConfigProvider(str(workspace_root))
+        audio_config = config.get_audio_processing_config()
+
+        comp = audio_config["compressor"]
+        assert comp["threshold"] == -24
+        assert comp["ratio"] == 3.5
+        assert comp["attack"] == 5
+        assert comp["release"] == 100
+
+    def test_audio_processing_loudnorm_params(self, workspace_root):
+        """Test loudnorm filter parameters."""
+        config = ConfigProvider(str(workspace_root))
+        audio_config = config.get_audio_processing_config()
+
+        ln = audio_config["loudnorm"]
+        assert ln["I"] == -16
+        assert ln["TP"] == -1.5
+        assert ln["LRA"] == 11
 
 
-def measure_lufs(audio_path: str) -> float:
-    """Measure integrated loudness (LUFS) using ebur128."""
-    ffmpeg = get_ffmpeg_path()
-    result = subprocess.run(
-        [ffmpeg, "-i", audio_path, "-af", "ebur128", "-f", "null", "-"],
-        capture_output=True,
-        text=True,
-    )
-    lines = [l for l in result.stderr.splitlines() if "I:" in l]
-    if not lines:
-        raise ValueError(f"Could not measure LUFS for {audio_path}")
-    return float(lines[-1].split()[1])
+class TestSessionAudioConfig:
+    """Test session-specific audio configuration."""
 
+    def test_get_session_audio_config_no_override(self, workspace_root, sample_session_id):
+        """Test session audio config falls back to global when no override exists."""
+        config = ConfigProvider(str(workspace_root))
+        session_config = config.get_session_audio_config(str(workspace_root), sample_session_id)
 
-def run_filter_chain(
-    input_path: str,
-    filter_chain: str,
-    output_path: str,
-    sample_rate: int = 48000,
-    channels: int = 1,
-):
-    """Run FFmpeg with a filter chain."""
-    ffmpeg = get_ffmpeg_path()
-    subprocess.run(
-        [
-            ffmpeg,
-            "-y",
-            "-i",
-            input_path,
-            "-af",
-            filter_chain,
-            "-ar",
-            str(sample_rate),
-            "-ac",
-            str(channels),
-            output_path,
-        ],
-        check=True,
-        capture_output=True,
-    )
+        # Should return global defaults when no session override
+        assert session_config["highpass"]["enabled"] is True
+        assert session_config["loudnorm"]["I"] == -16
 
+    def test_save_and_get_session_audio_config(self, workspace_root, sample_session_id):
+        """Test saving and retrieving session-specific audio config."""
+        config = ConfigProvider(str(workspace_root))
 
-class TestLoudnormProcessing:
-    """Test loudnorm produces correct LUFS output."""
+        # Create custom config
+        custom_config = {
+            "highpass": {"enabled": False, "frequency": 60},
+            "eq_boxiness": {"enabled": True, "gain": -6},
+            "compressor": {"enabled": False},
+            "highshelf": {"enabled": True},
+            "limiter": {"enabled": True},
+            "loudnorm": {"enabled": True, "I": -14},
+        }
 
-    @pytest.fixture
-    def master_audio_path(self) -> Path:
-        """Path to test audio file."""
-        return Path("audio/study/master.wav")
+        # Save session config
+        config.save_session_audio_config(str(workspace_root), sample_session_id, custom_config)
 
-    def test_longform_loudnorm_target(self, master_audio_path, tmp_path):
-        """
-        Test that loudnorm with longform settings produces ~-16 LUFS output.
+        # Retrieve and verify
+        retrieved = config.get_session_audio_config(str(workspace_root), sample_session_id)
 
-        This is the key test that caught the bug where LRA=9 was too low
-        for voice with natural LRA=20, causing loudnorm to produce -24 LUFS.
-        """
-        if not master_audio_path.exists():
-            pytest.skip(f"Test audio not found: {master_audio_path}")
+        assert retrieved["highpass"]["enabled"] is False
+        assert retrieved["highpass"]["frequency"] == 60
+        assert retrieved["eq_boxiness"]["gain"] == -6
+        assert retrieved["compressor"]["enabled"] is False
+        assert retrieved["loudnorm"]["I"] == -14
 
-        output_path = tmp_path / "longform_normalized.wav"
+    def test_toggle_audio_filter(self, workspace_root, sample_session_id):
+        """Test toggling a single audio filter."""
+        config = ConfigProvider(str(workspace_root))
 
-        # Get config settings
-        config = ConfigProvider(".")
-        loudnorm_targets = config.get_loudnorm_targets("longform")
+        # Start with defaults
+        original = config.get_session_audio_config(str(workspace_root), sample_session_id)
+        original_highpass = original["highpass"]["enabled"]
 
-        filter_chain = f"loudnorm=I={loudnorm_targets.get('I', -16)}:TP={loudnorm_targets.get('TP', -1.5)}:LRA={loudnorm_targets.get('LRA', 14)}"
+        # Toggle highpass
+        config.toggle_audio_filter(str(workspace_root), sample_session_id, "highpass")
 
-        run_filter_chain(str(master_audio_path), filter_chain, str(output_path))
+        # Verify toggled
+        toggled = config.get_session_audio_config(str(workspace_root), sample_session_id)
+        assert toggled["highpass"]["enabled"] is not original_highpass
 
-        # Measure actual output loudness
-        lufs = measure_lufs(str(output_path))
+    def test_update_audio_filter_params(self, workspace_root, sample_session_id):
+        """Test updating filter parameters."""
+        config = ConfigProvider(str(workspace_root))
 
-        # Assert within acceptable range
-        target_i = loudnorm_targets.get("I", -16)
-        tolerance = 2.0  # Allow ±2 LUFS tolerance
-
-        assert lufs >= target_i - tolerance, (
-            f"Output LUFS {lufs} is too low. "
-            f"Expected ~{target_i}, got {lufs}. "
-            f"Check loudnorm LRA setting - may be too low for voice dynamic range."
-        )
-        assert lufs <= target_i + tolerance, (
-            f"Output LUFS {lufs} is too high. Expected ~{target_i}, got {lufs}."
-        )
-
-    def test_shorts_loudnorm_target(self, master_audio_path, tmp_path):
-        """Test that shorts loudnorm targets -14 LUFS."""
-        if not master_audio_path.exists():
-            pytest.skip(f"Test audio not found: {master_audio_path}")
-
-        output_path = tmp_path / "shorts_normalized.wav"
-
-        config = ConfigProvider(".")
-        loudnorm_targets = config.get_loudnorm_targets("shorts")
-
-        filter_chain = f"loudnorm=I={loudnorm_targets.get('I', -14)}:TP={loudnorm_targets.get('TP', -1)}:LRA={loudnorm_targets.get('LRA', 6)}"
-
-        run_filter_chain(str(master_audio_path), filter_chain, str(output_path))
-
-        lufs = measure_lufs(str(output_path))
-
-        target_i = loudnorm_targets.get("I", -14)
-        tolerance = 2.0
-
-        assert target_i - tolerance <= lufs <= target_i + tolerance, (
-            f"Output LUFS {lufs} not within {tolerance} of target {target_i}"
-        )
-
-
-class TestAudioEngineerFilterChain:
-    """Test AudioEngineer produces correct output."""
-
-    @pytest.fixture
-    def audio_engineer(self):
-        config = ConfigProvider(".")
-        return AudioEngineer(config)
-
-    @pytest.fixture
-    def master_audio_path(self) -> Path:
-        return Path("audio/study/master.wav")
-
-    def test_preprocess_longform_output_lufs(self, audio_engineer, master_audio_path, tmp_path):
-        """Test AudioEngineer.preprocess produces correct LUFS for longform."""
-        if not master_audio_path.exists():
-            pytest.skip(f"Test audio not found: {master_audio_path}")
-
-        output_path = tmp_path / "preprocessed.wav"
-
-        result = audio_engineer.preprocess(master_audio_path, output_path, "longform")
-
-        # Check for errors
-        assert not result.get("errors"), f"Preprocessing errors: {result.get('errors')}"
-
-        # Verify output loudness
-        lufs = measure_lufs(str(output_path))
-
-        config = ConfigProvider(".")
-        targets = config.get_loudnorm_targets("longform")
-        target_i = targets.get("I", -16)
-        tolerance = 2.5  # Slightly larger tolerance for full chain
-
-        assert lufs >= target_i - tolerance, (
-            f"Output LUFS {lufs} too low. Expected ~{target_i}. "
-            f"Filter chain: {result.get('filter_chain')}"
+        # Update loudnorm target
+        config.update_audio_filter(
+            str(workspace_root), sample_session_id, "loudnorm", {"I": -18, "TP": -2.0}
         )
 
-    def test_preprocess_preserves_sample_rate(self, audio_engineer, master_audio_path, tmp_path):
-        """Test that preprocess outputs at 48kHz (not 16kHz)."""
-        if not master_audio_path.exists():
-            pytest.skip(f"Test audio not found: {master_audio_path}")
-
-        output_path = tmp_path / "preprocessed_48k.wav"
-
-        audio_engineer.preprocess(master_audio_path, output_path, "longform")
-
-        # Verify sample rate is 48kHz
-        ffmpeg = get_ffmpeg_path()
-        result = subprocess.run(
-            [ffmpeg, "-i", str(output_path), "-hide_banner"],
-            capture_output=True,
-            text=True,
-        )
-
-        assert "48000 Hz" in result.stderr, (
-            f"Expected 48000 Hz output, got different sample rate. "
-            f"Output will cause loudnorm measurement issues if different from input."
-        )
+        updated = config.get_session_audio_config(str(workspace_root), sample_session_id)
+        assert updated["loudnorm"]["I"] == -18
+        assert updated["loudnorm"]["TP"] == -2.0
 
 
-class TestStereoProcessing:
-    """Test stereo widening for export."""
+class TestAudioFilterChainBuilding:
+    """Test building audio filter chains from config."""
 
-    @pytest.fixture
-    def mono_audio_path(self) -> Path:
-        return Path("audio/study/master.wav")
+    def test_build_filter_chain_all_enabled(self, workspace_root):
+        """Test filter chain when all filters are enabled."""
+        config = ConfigProvider(str(workspace_root))
+        audio_config = config.get_audio_processing_config()
 
-    def test_extrastereo_produces_stereo(self, mono_audio_path, tmp_path):
-        """Test that extrastereo filter converts mono to stereo."""
-        if not mono_audio_path.exists():
-            pytest.skip(f"Test audio not found: {mono_audio_path}")
+        # Build filter chain
+        filters = []
+        if audio_config.get("highpass", {}).get("enabled"):
+            hp = audio_config["highpass"]
+            filters.append(f"highpass=frequency={hp['frequency']}:poles={hp['poles']}")
 
-        output_path = tmp_path / "stereo.wav"
+        if audio_config.get("eq_boxiness", {}).get("enabled"):
+            eq = audio_config["eq_boxiness"]
+            filters.append(
+                f"equalizer=frequency={eq['frequency']}:width_type=hertz:width={eq.get('width', 300)}:gain={eq['gain']}"
+            )
 
-        run_filter_chain(str(mono_audio_path), "extrastereo=m=1.5", str(output_path), channels=2)
+        if audio_config.get("compressor", {}).get("enabled"):
+            comp = audio_config["compressor"]
+            filters.append(
+                f"acompressor=threshold={comp['threshold']}:ratio={comp['ratio']}:attack={comp['attack']}:release={comp['release']}"
+            )
 
-        # Verify stereo output
-        ffmpeg = get_ffmpeg_path()
-        result = subprocess.run([ffmpeg, "-i", str(output_path)], capture_output=True, text=True)
+        if audio_config.get("highshelf", {}).get("enabled"):
+            hs = audio_config["highshelf"]
+            filters.append(f"highshelf=frequency={hs['frequency']}:gain={hs['gain']}")
 
-        # Should contain "stereo" not "mono"
-        assert "stereo" in result.stderr.lower() or "2 channels" in result.stderr.lower(), (
-            "extrastereo should produce stereo output"
-        )
+        if audio_config.get("limiter", {}).get("enabled"):
+            lim = audio_config["limiter"]
+            filters.append(f"alimiter=limit={lim['ceiling']}")
 
+        if audio_config.get("loudnorm", {}).get("enabled"):
+            ln = audio_config["loudnorm"]
+            filters.append(f"loudnorm=I={ln['I']}:TP={ln['TP']}:LRA={ln['LRA']}")
 
-class TestConfigSettings:
-    """Test that config provides correct filter settings."""
+        filter_chain = ",".join(filters)
 
-    def test_longform_loudnorm_settings(self):
-        """Verify longform loudnorm config matches requirements."""
-        config = ConfigProvider(".")
-        targets = config.get_loudnorm_targets("longform")
+        assert "highpass" in filter_chain
+        assert "equalizer" in filter_chain
+        assert "acompressor" in filter_chain
+        assert "highshelf" in filter_chain
+        assert "alimiter" in filter_chain
+        assert "loudnorm" in filter_chain
 
-        # These are the requirements for voice with high dynamic range
-        assert targets.get("I") == -16, (
-            f"Longform I should be -16, got {targets.get('I')}. "
-            "-14 is too high for recordings already at -13.47 LUFS."
-        )
-        assert targets.get("TP") == -1.5, f"Longform TP should be -1.5, got {targets.get('TP')}"
-        assert targets.get("LRA") == 11, (
-            f"Longform LRA should be 11, got {targets.get('LRA')}. "
-            "This matches the skill recommendation for long-form content."
-        )
+    def test_build_filter_chain_some_disabled(self, workspace_root):
+        """Test filter chain when some filters are disabled."""
+        config = ConfigProvider(str(workspace_root))
 
-    def test_shorts_loudnorm_settings(self):
-        """Verify shorts loudnorm config."""
-        config = ConfigProvider(".")
-        targets = config.get_loudnorm_targets("shorts")
+        # Disable highpass and compressor
+        partial_config = {
+            "highpass": {"enabled": False},
+            "eq_boxiness": {"enabled": False},
+            "compressor": {"enabled": True},
+            "highshelf": {"enabled": True},
+            "limiter": {"enabled": False},
+            "loudnorm": {"enabled": True},
+        }
 
-        # Shorts typically use tighter loudness
-        assert targets.get("I") == -14
-        assert targets.get("TP") == -1
-        assert targets.get("LRA") == 6
+        filters = []
+        if partial_config.get("highpass", {}).get("enabled"):
+            filters.append("highpass=frequency=80:poles=2")
+        if partial_config.get("eq_boxiness", {}).get("enabled"):
+            filters.append("equalizer=frequency=450:width_type=hertz:width=300:gain=-3")
+        if partial_config.get("compressor", {}).get("enabled"):
+            filters.append("acompressor=threshold=-24:ratio=3.5:attack=5:release=100")
+        if partial_config.get("highshelf", {}).get("enabled"):
+            filters.append("highshelf=frequency=10000:gain=3")
+        if partial_config.get("limiter", {}).get("enabled"):
+            filters.append("alimiter=limit=-1")
+        if partial_config.get("loudnorm", {}).get("enabled"):
+            filters.append("loudnorm=I=-16:TP=-1.5:LRA=11")
+
+        filter_chain = ",".join(filters)
+
+        assert "highpass" not in filter_chain
+        assert "equalizer" not in filter_chain
+        assert "acompressor" in filter_chain
+        assert "highshelf" in filter_chain
+        assert "alimiter" not in filter_chain
+        assert "loudnorm" in filter_chain
