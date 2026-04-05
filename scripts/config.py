@@ -133,6 +133,90 @@ class ConfigProvider:
     def get_diagnostic_settings(self) -> dict:
         return self._filters.get("diagnostic", {})
 
+    # === Audio Processing Settings ===
+
+    def get_audio_processing_config(self) -> dict:
+        """Get global audio processing configuration with all filters."""
+        audio_config_file = self._config_dir / "audio_processing.json"
+        if audio_config_file.exists():
+            return json.loads(audio_config_file.read_text())
+        return {}
+
+    def get_audio_filter(self, filter_name: str) -> dict:
+        """Get a specific audio filter config."""
+        config = self.get_audio_processing_config()
+        return config.get(filter_name, {})
+
+    def get_audio_filter_enabled(self, filter_name: str) -> bool:
+        """Check if an audio filter is enabled."""
+        filter_config = self.get_audio_filter(filter_name)
+        return filter_config.get("enabled", False)
+
+    def save_audio_processing_config(self, config: dict) -> None:
+        """Save audio processing configuration."""
+        audio_config_file = self._config_dir / "audio_processing.json"
+        audio_config_file.write_text(json.dumps(config, indent=2))
+
+    def update_audio_filter(self, filter_name: str, updates: dict) -> None:
+        """Update a specific audio filter configuration."""
+        config = self.get_audio_processing_config()
+        if filter_name in config:
+            config[filter_name].update(updates)
+        else:
+            config[filter_name] = updates
+        self.save_audio_processing_config(config)
+
+    def toggle_audio_filter(self, filter_name: str, enabled: bool) -> None:
+        """Toggle a specific audio filter on/off."""
+        self.update_audio_filter(filter_name, {"enabled": enabled})
+
+    def get_session_audio_config(self, workspace: str, session_id: str) -> dict:
+        """Get session-specific audio config, falls back to global defaults."""
+        workspace_path = Path(workspace)
+        session_audio_config = (
+            workspace_path / "data" / "recordings" / session_id / "audio_config.json"
+        )
+
+        if session_audio_config.exists():
+            return json.loads(session_audio_config.read_text())
+
+        # Fall back to global config
+        return self.get_audio_processing_config()
+
+    def save_session_audio_config(self, workspace: str, session_id: str, config: dict) -> None:
+        """Save session-specific audio configuration."""
+        workspace_path = Path(workspace)
+        session_audio_config = (
+            workspace_path / "data" / "recordings" / session_id / "audio_config.json"
+        )
+        session_audio_config.parent.mkdir(parents=True, exist_ok=True)
+        session_audio_config.write_text(json.dumps(config, indent=2))
+
+    def toggle_audio_filter(self, workspace: str, session_id: str, filter_name: str) -> None:
+        """Toggle a session-specific audio filter on/off."""
+        audio_config = self.get_session_audio_config(workspace, session_id)
+        current = audio_config.get(filter_name, {}).get("enabled", True)
+        audio_config[filter_name] = audio_config.get(filter_name, {})
+        audio_config[filter_name]["enabled"] = not current
+        self.save_session_audio_config(workspace, session_id, audio_config)
+
+    def update_audio_filter(
+        self, workspace: str, session_id: str, filter_name: str, updates: dict
+    ) -> None:
+        """Update session-specific audio filter parameters."""
+        audio_config = self.get_session_audio_config(workspace, session_id)
+        audio_config[filter_name] = audio_config.get(filter_name, {})
+        audio_config[filter_name].update(updates)
+        self.save_session_audio_config(workspace, session_id, audio_config)
+
+    def reset_audio_processing_to_defaults(self) -> None:
+        """Reset audio processing to default configuration."""
+        self.save_audio_processing_config(
+            json.loads(
+                (Path(__file__).parent.parent / "config" / "audio_processing.json").read_text()
+            )
+        )
+
     # === Profile Settings (now uses single "default" profile) ===
 
     def get_profile(self, profile_name: str = "default") -> dict:
