@@ -26,13 +26,7 @@ def print_main_menu() -> None:
     table.add_row("2", "Continuar Sesion")
     table.add_row("3", "Listar Sesiones")
     table.add_row("", "")
-    table.add_row("4", "[green]Procesar Audio[/green]  (Stage 1)")
-    table.add_row("5", "[magenta]Agregar Subtítulos[/magenta]  (Stage 3)")
-    table.add_row("6", "[yellow]Coloración[/yellow]  (Stage 4 - Opcional)")
-    table.add_row("", "")
-    table.add_row("7", "Presets")
-    table.add_row("8", "Configuración")
-    table.add_row("9", "Preview Audio")
+    table.add_row("4", "Configuracion")
     table.add_row("0", "Salir")
 
     panel = Panel(
