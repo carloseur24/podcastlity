@@ -5,8 +5,7 @@ Pipeline:
 2. Apply ConvTasNet source separation - separates voice from noise
 3. Apply Silero VAD - detects speech segments
 4. Concatenate only voice segments
-5. Apply highpass (80Hz) - removes low rumble
-6. Apply loudnorm (-16 LUFS) - podcast standard loudness
+5. Apply configurable audio chain (highpass, EQ, compressor, limiter, loudnorm)
 """
 
 import json
@@ -18,6 +17,74 @@ import numpy as np
 import pyrnnoise
 import torch
 from scipy.io import wavfile
+
+from scripts.config import ConfigProvider
+
+
+def build_audio_filter_chain(audio_config: dict) -> str:
+    """
+    Build FFmpeg filter chain based on audio processing configuration.
+
+    Args:
+        audio_config: Dictionary with filter settings from config
+
+    Returns:
+        FFmpeg filter chain string
+    """
+    filters = []
+
+    # 1. Highpass - Remove low rumble
+    hp = audio_config.get("highpass", {})
+    if hp.get("enabled", True):
+        freq = hp.get("frequency", 80)
+        poles = hp.get("poles", 2)
+        filters.append(f"highpass=f={freq}:poles={poles}")
+
+    # 2. EQ Boxiness - Remove boxy sound
+    eq = audio_config.get("eq_boxiness", {})
+    if eq.get("enabled", True):
+        freq = eq.get("frequency", 450)
+        gain = eq.get("gain", -3)
+        width = eq.get("width", 300)
+        filters.append(f"equalizer=f={freq}:g={gain}:w={width}")
+
+    # 3. Compressor - Voice compression
+    comp = audio_config.get("compressor", {})
+    if comp.get("enabled", True):
+        threshold = comp.get("threshold", -24)
+        ratio = comp.get("ratio", 3.5)
+        attack = comp.get("attack", 5)
+        release = comp.get("release", 100)
+        makeup = comp.get("makeup", 4)
+        knee = comp.get("knee", 1)
+        filters.append(
+            f"acompressor=threshold={threshold}dB:ratio={ratio}:attack={attack}:release={release}:makeup={makeup}dB:knee={knee}"
+        )
+
+    # 4. High Shelf - Add air/crispness
+    hs = audio_config.get("highshelf", {})
+    if hs.get("enabled", True):
+        freq = hs.get("frequency", 10000)
+        gain = hs.get("gain", 3)
+        filters.append(f"highshelf=f={freq}:g={gain}")
+
+    # 5. Limiter - Prevent clipping
+    lim = audio_config.get("limiter", {})
+    if lim.get("enabled", True):
+        ceiling = lim.get("ceiling", -1)
+        filters.append(f"alimiter=limit={ceiling}dB")
+
+    # 6. Loudnorm - Volume normalization (always last)
+    ln = audio_config.get("loudnorm", {})
+    if ln.get("enabled", True):
+        i_val = ln.get("I", -16)
+        tp = ln.get("TP", -1.5)
+        lra = ln.get("LRA", 11)
+        filters.append(f"loudnorm=I={i_val}:TP={tp}:LRA={lra}")
+
+    return ",".join(filters)
+
+
 from silero_vad import get_speech_timestamps, load_silero_vad
 
 from scripts.config import ConfigProvider
@@ -93,33 +160,32 @@ def _apply_arnndn(input_wav: str, output_wav: str, model_path: str, mix: float) 
         return False
 
 
-def _apply_podcast_chain(input_wav: str, output_wav: str, profile: str = "default") -> bool:
+def _apply_podcast_chain(input_wav: str, output_wav: str, audio_config: dict | None = None) -> bool:
     """
-    Apply professional podcast audio chain with custom EQ settings:
-    Based on frequency analysis:
-    1. highpass 80Hz - remove low rumble
-    2. Bell cut at 450Hz (-3dB) - remove "boxy" sound from 400-500Hz
-    3. Compressor: threshold -24dB, ratio 3.5:1, attack 5ms, release 100ms
-    4. High shelf at 10kHz (+3dB) - add "air" and crispness
-    5. Limiter: ceiling -1.0dB
-    6. loudnorm: -16 LUFS, -1.5 dBTP (Spotify/Apple Podcasts standard)
+    Apply professional podcast audio chain with configurable filters.
+
+    The filter chain is built dynamically based on audio_config:
+    1. highpass - remove low rumble
+    2. eq_boxiness - remove "boxy" sound
+    3. compressor - voice compression
+    4. highshelf - add "air" and crispness
+    5. limiter - prevent clipping
+    6. loudnorm - volume normalization
+
+    Args:
+        input_wav: Input audio file path
+        output_wav: Output audio file path
+        audio_config: Optional audio processing config dict. If None, uses defaults.
     """
     ffmpeg_path = "/usr/bin/ffmpeg"
 
-    # Default loudness targets: -16 LUFS, -1.5 dBTP (podcast standard)
-    target_lufs = "-16"
-    true_peak = "-1.5"
+    # Use provided config or load defaults
+    if audio_config is None:
+        config_provider = ConfigProvider(".")
+        audio_config = config_provider.get_audio_processing_config()
 
-    # Full podcast quality chain with custom EQ settings
-    # Based on frequency analysis: HPF @ 80Hz, Bell cut @ 450Hz, Compressor, Air shelf @ 10kHz
-    filter_chain = (
-        "highpass=f=80:poles=2,"  # Remove low rumble (24dB/oct with poles=2)
-        "equalizer=f=450:g=-3:w=300,"  # Bell cut at 450Hz -3dB (remove boxy sound)
-        "acompressor=threshold=-24dB:ratio=3.5:attack=5:release=100:makeup=4dB:knee=1,"  # Voice compression
-        "highshelf=f=10000:g=3,"  # Air shelf at 10kHz +3dB (add crispness/presence)
-        f"alimiter=limit=-1dB,"  # Hard limiter at -1dB ceiling
-        f"loudnorm=I={target_lufs}:TP={true_peak}:LRA=11"  # Profile-specific loudness
-    )
+    # Build filter chain from config
+    filter_chain = build_audio_filter_chain(audio_config)
 
     cmd = [
         ffmpeg_path,
@@ -424,6 +490,10 @@ def run(session_id: str, workspace: str) -> dict:
     profile = session.profile or "default"
     print(f"[voice_extract] Using profile: {profile} for loudness settings")
 
+    # Get session-specific audio processing config (or fallback to global defaults)
+    audio_config = config.get_session_audio_config(workspace, session_id)
+    print(f"[voice_filter] Audio processing config loaded: {len(audio_config)} filters configured")
+
     # Get VAD settings from config
     vad_settings = config.get_voice_extract_settings()
     min_speech_ms = vad_settings.get("min_speech_duration_ms", 2500)
@@ -467,7 +537,7 @@ def run(session_id: str, workspace: str) -> dict:
                 if not spectral_success:
                     # Ultimate fallback: just highpass + loudnorm
                     print("[voice_extract] All noise reduction failed, applying podcast chain...")
-                    _apply_podcast_chain(str(input_audio), str(denoised_audio), profile)
+                    _apply_podcast_chain(str(input_audio), str(denoised_audio), audio_config)
 
         # Step 2: Load Silero VAD model
         print("[voice_extract] Loading Silero VAD model...")
@@ -512,7 +582,7 @@ def run(session_id: str, workspace: str) -> dict:
 
         # Step 6: Apply full podcast chain for professional quality
         print("[voice_extract] Applying podcast chain: highpass + EQ + compressor + loudnorm...")
-        final_success = _apply_podcast_chain(str(voice_only_wav), str(output_audio), profile)
+        final_success = _apply_podcast_chain(str(voice_only_wav), str(output_audio), audio_config)
 
         if not final_success:
             # If final processing fails, use the raw voice audio
@@ -616,7 +686,11 @@ def process_segment(audio_segment_path: str, output_path: str, config: ConfigPro
         # Step 4: Apply final podcast chain for professional quality
         temp_voice = output_path.replace(".wav", "_voice.wav")
         wavfile.write(str(temp_voice), rate, voice_audio)
-        _apply_podcast_chain(str(temp_voice), output_path, "default")
+
+        # Use default audio config for segment processing
+        config_provider = ConfigProvider(".")
+        default_audio_config = config_provider.get_audio_processing_config()
+        _apply_podcast_chain(str(temp_voice), output_path, default_audio_config)
 
         # Cleanup
         Path(temp_denoised).unlink(missing_ok=True)
