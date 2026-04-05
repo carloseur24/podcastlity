@@ -142,9 +142,7 @@ class TestAudioEngineerFilterChain:
     def master_audio_path(self) -> Path:
         return Path("audio/study/master.wav")
 
-    def test_preprocess_longform_output_lufs(
-        self, audio_engineer, master_audio_path, tmp_path
-    ):
+    def test_preprocess_longform_output_lufs(self, audio_engineer, master_audio_path, tmp_path):
         """Test AudioEngineer.preprocess produces correct LUFS for longform."""
         if not master_audio_path.exists():
             pytest.skip(f"Test audio not found: {master_audio_path}")
@@ -169,9 +167,7 @@ class TestAudioEngineerFilterChain:
             f"Filter chain: {result.get('filter_chain')}"
         )
 
-    def test_preprocess_preserves_sample_rate(
-        self, audio_engineer, master_audio_path, tmp_path
-    ):
+    def test_preprocess_preserves_sample_rate(self, audio_engineer, master_audio_path, tmp_path):
         """Test that preprocess outputs at 48kHz (not 16kHz)."""
         if not master_audio_path.exists():
             pytest.skip(f"Test audio not found: {master_audio_path}")
@@ -208,20 +204,16 @@ class TestStereoProcessing:
 
         output_path = tmp_path / "stereo.wav"
 
-        run_filter_chain(
-            str(mono_audio_path), "extrastereo=m=1.5", str(output_path), channels=2
-        )
+        run_filter_chain(str(mono_audio_path), "extrastereo=m=1.5", str(output_path), channels=2)
 
         # Verify stereo output
         ffmpeg = get_ffmpeg_path()
-        result = subprocess.run(
-            [ffmpeg, "-i", str(output_path)], capture_output=True, text=True
-        )
+        result = subprocess.run([ffmpeg, "-i", str(output_path)], capture_output=True, text=True)
 
         # Should contain "stereo" not "mono"
-        assert (
-            "stereo" in result.stderr.lower() or "2 channels" in result.stderr.lower()
-        ), "extrastereo should produce stereo output"
+        assert "stereo" in result.stderr.lower() or "2 channels" in result.stderr.lower(), (
+            "extrastereo should produce stereo output"
+        )
 
 
 class TestConfigSettings:
@@ -237,9 +229,7 @@ class TestConfigSettings:
             f"Longform I should be -16, got {targets.get('I')}. "
             "-14 is too high for recordings already at -13.47 LUFS."
         )
-        assert targets.get("TP") == -1.5, (
-            f"Longform TP should be -1.5, got {targets.get('TP')}"
-        )
+        assert targets.get("TP") == -1.5, f"Longform TP should be -1.5, got {targets.get('TP')}"
         assert targets.get("LRA") == 11, (
             f"Longform LRA should be 11, got {targets.get('LRA')}. "
             "This matches the skill recommendation for long-form content."

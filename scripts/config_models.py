@@ -60,13 +60,27 @@ class EQBandSettings(BaseModel):
 
 
 class EQSettings(BaseModel):
-    grave: EQBandSettings = Field(default_factory=lambda: EQBandSettings(freq=160, width=0.8, gain=3))
-    mud_cut: EQBandSettings = Field(default_factory=lambda: EQBandSettings(freq=350, width=1.2, gain=-2))
-    presence: EQBandSettings = Field(default_factory=lambda: EQBandSettings(freq=3500, width=1.0, gain=3))
-    voice_clarity: EQBandSettings = Field(default_factory=lambda: EQBandSettings(freq=4000, width=0.8, gain=2))
-    proximity: EQBandSettings = Field(default_factory=lambda: EQBandSettings(freq=120, width=1.0, gain=-3))
-    boxiness: EQBandSettings = Field(default_factory=lambda: EQBandSettings(freq=400, width=1.5, gain=-2))
-    sibilance: EQBandSettings = Field(default_factory=lambda: EQBandSettings(freq=7000, width=1.0, gain=-3))
+    grave: EQBandSettings = Field(
+        default_factory=lambda: EQBandSettings(freq=160, width=0.8, gain=3)
+    )
+    mud_cut: EQBandSettings = Field(
+        default_factory=lambda: EQBandSettings(freq=350, width=1.2, gain=-2)
+    )
+    presence: EQBandSettings = Field(
+        default_factory=lambda: EQBandSettings(freq=3500, width=1.0, gain=3)
+    )
+    voice_clarity: EQBandSettings = Field(
+        default_factory=lambda: EQBandSettings(freq=4000, width=0.8, gain=2)
+    )
+    proximity: EQBandSettings = Field(
+        default_factory=lambda: EQBandSettings(freq=120, width=1.0, gain=-3)
+    )
+    boxiness: EQBandSettings = Field(
+        default_factory=lambda: EQBandSettings(freq=400, width=1.5, gain=-2)
+    )
+    sibilance: EQBandSettings = Field(
+        default_factory=lambda: EQBandSettings(freq=7000, width=1.0, gain=-3)
+    )
 
 
 class LoudnormProfile(BaseModel):
@@ -76,8 +90,9 @@ class LoudnormProfile(BaseModel):
 
 
 class LoudnormSettings(BaseModel):
-    shorts: LoudnormProfile = Field(default_factory=lambda: LoudnormProfile(I=-14, TP=-1, LRA=6))
-    longform: LoudnormProfile = Field(default_factory=lambda: LoudnormProfile(I=-14, TP=-1, LRA=9))
+    default: LoudnormProfile = Field(
+        default_factory=lambda: LoudnormProfile(I=-16, TP=-1.5, LRA=11)
+    )
 
 
 class StereoSettings(BaseModel):

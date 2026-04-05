@@ -1,0 +1,30 @@
+# Build output
+build/
+dist/
+
+# Render outputs
+output/*.mp4
+
+# Node dependencies
+node_modules/
+
+# AMD GPU installer (temporary)
+*.deb
+
+# Cache
+.cache/
+*.log
+# Media files (user-provided or generated)
+assets/fonts/*.ttf
+assets/fonts/*.otf
+assets/fonts/*.woff
+assets/fonts/*.woff2
+assets/videos/*.mp4
+assets/videos/*.mov
+assets/videos/*.webm
+assets/videos/*.avi
+demos/*.png
+demos/*.jpg
+demos/*.jpeg
+demos/*.gif
+demos/*.mp4

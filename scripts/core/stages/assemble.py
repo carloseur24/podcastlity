@@ -12,9 +12,9 @@ Pipeline flow:
 import json
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
 from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -37,28 +37,30 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("assemble", f"Session '{session_id}' not found")
 
-    profile_name = session.profile or "longform"
+    profile_name = session.profile or "default"
 
-    cutmap_file = workspace_path / "cutmaps" / session_id / f"{profile_name}.json"
+    # Cutmap in output/cutmaps
+    cutmap_file = workspace_path / "output" / "cutmaps" / session_id / f"{profile_name}.json"
     if not cutmap_file.exists():
         raise StageError("assemble", f"Cutmap not found: {cutmap_file}")
 
     cutmap = json.loads(cutmap_file.read_text())
     keep_intervals = cutmap.get("keep_intervals", [])
 
-    proxies_dir = workspace_path / "proxies" / session_id
+    # Assembled goes in output/proxies
+    proxies_dir = workspace_path / "output" / "proxies" / session_id
     proxies_dir.mkdir(parents=True, exist_ok=True)
 
-    # Use original camera video for best quality
-    camera_original = workspace_path / "recordings" / session_id / "camera.mp4"
+    # Use original camera video for best quality (data/recordings)
+    camera_original = workspace_path / "data" / "recordings" / session_id / "camera.mp4"
     camera_proxy = proxies_dir / "camera_proxy.mp4"
     source_video = camera_original if camera_original.exists() else camera_proxy
 
     if not source_video.exists():
-        raise StageError("assemble", f"Source video not found")
+        raise StageError("assemble", "Source video not found")
 
-    # Get the cleaned audio (full duration, noise reduced)
-    voice_audio = workspace_path / "audio" / session_id / "master_voice.wav"
+    # Get the cleaned audio from output/audio
+    voice_audio = workspace_path / "output" / "audio" / session_id / "master_voice.wav"
     if not voice_audio.exists():
         raise StageError("assemble", f"Cleaned audio not found: {voice_audio}")
 
@@ -115,11 +117,6 @@ def run(session_id: str, workspace: str) -> dict:
                 stereo_widen=True,
             )
             Path(temp_with_audio).replace(output_file)
-
-        if profile_name == "shorts":
-            vertical_file = proxies_dir / f"assembled_{profile_name}_vertical.mp4"
-            ffmpeg.convert_to_vertical(str(output_file), str(vertical_file))
-            vertical_file.replace(output_file)
 
         assembled_file = str(output_file)
 

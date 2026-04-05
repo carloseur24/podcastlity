@@ -2,7 +2,6 @@
 
 import json
 from pathlib import Path
-from typing import Optional
 
 
 def load_transcript(workspace: str, session_id: str) -> list[dict]:
@@ -28,7 +27,7 @@ def load_transcript(workspace: str, session_id: str) -> list[dict]:
         List of transcript segments with word-level timestamps
     """
     workspace_path = Path(workspace)
-    transcript_file = workspace_path / "transcripts" / session_id / "segments.json"
+    transcript_file = workspace_path / "output" / "transcripts" / session_id / "segments.json"
 
     if not transcript_file.exists():
         raise FileNotFoundError(f"Transcript not found: {transcript_file}")
@@ -79,9 +78,7 @@ def convert_to_remotion_captions(transcript: list[dict]) -> list[dict]:
                         "text": word.get("word", "").strip(),
                         "startMs": int(word.get("start", 0) * 1000),
                         "endMs": int(word.get("end", 0) * 1000),
-                        "timestampMs": int(
-                            (word.get("start", 0) + word.get("end", 0)) / 2 * 1000
-                        ),
+                        "timestampMs": int((word.get("start", 0) + word.get("end", 0)) / 2 * 1000),
                         "confidence": word.get("probability", 1.0),
                     }
                 )
@@ -104,9 +101,7 @@ def convert_to_remotion_captions_simple(transcript: list[dict]) -> list[dict]:
                 "text": segment.get("text", "").strip(),
                 "startMs": int(segment.get("start", 0) * 1000),
                 "endMs": int(segment.get("end", 0) * 1000),
-                "timestampMs": int(
-                    (segment.get("start", 0) + segment.get("end", 0)) / 2 * 1000
-                ),
+                "timestampMs": int((segment.get("start", 0) + segment.get("end", 0)) / 2 * 1000),
                 "confidence": 1.0 - segment.get("no_speech_prob", 0),
             }
         )
@@ -160,9 +155,7 @@ def load_subtitle_preset(workspace: str, preset_name: str) -> dict:
     presets = presets_config.get("presets", {})
 
     if preset_name not in presets:
-        raise ValueError(
-            f"Preset '{preset_name}' not found. Available: {list(presets.keys())}"
-        )
+        raise ValueError(f"Preset '{preset_name}' not found. Available: {list(presets.keys())}")
 
     return presets[preset_name]
 

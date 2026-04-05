@@ -1,0 +1,152 @@
+{
+  "default": {
+    "name": "Default Audio Processing",
+    "description": "Default audio preset - cannot be edited or deleted",
+    "read_only": true,
+    "is_default": true,
+    "type": "audio",
+    "processing": {
+      "voice_extraction": {
+        "min_speech_duration_ms": 2500,
+        "min_silence_duration_ms": 2500
+      },
+      "filters": {
+        "highpass": {
+          "default_freq": 80,
+          "muffled_voice_freq": 120,
+          "poles": 2
+        },
+        "denoise": {
+          "nr_mild": 10,
+          "nr_moderate": 18,
+          "nr_heavy": 25
+        },
+        "compressor": {
+          "threshold_db": -24,
+          "ratio": 3.5,
+          "makeup_db": 4
+        },
+        "gate": {
+          "above_floor_db": 6,
+          "ratio_heavy": 12
+        },
+        "eq": {
+          "presence_freq": 3500,
+          "presence_gain": 2
+        }
+      },
+      "loudnorm": {
+        "shorts": {
+          "I": -14,
+          "TP": -1,
+          "LRA": 6
+        },
+        "longform": {
+          "I": -16,
+          "TP": -1.5,
+          "LRA": 11
+        }
+      }
+    }
+  },
+  "voice_clarity": {
+    "name": "Voice Clarity",
+    "description": "Enhanced clarity for speech-focused content",
+    "read_only": false,
+    "is_default": false,
+    "type": "audio",
+    "processing": {
+      "voice_extraction": {
+        "min_speech_duration_ms": 2000,
+        "min_silence_duration_ms": 2000
+      },
+      "filters": {
+        "highpass": {
+          "default_freq": 100,
+          "muffled_voice_freq": 150,
+          "poles": 2
+        },
+        "denoise": {
+          "nr_mild": 12,
+          "nr_moderate": 20,
+          "nr_heavy": 28
+        },
+        "compressor": {
+          "threshold_db": -20,
+          "ratio": 4,
+          "makeup_db": 6
+        },
+        "gate": {
+          "above_floor_db": 8,
+          "ratio_heavy": 15
+        },
+        "eq": {
+          "presence_freq": 4000,
+          "presence_gain": 3
+        }
+      },
+      "loudnorm": {
+        "shorts": {
+          "I": -14,
+          "TP": -1,
+          "LRA": 6
+        },
+        "longform": {
+          "I": -16,
+          "TP": -1.5,
+          "LRA": 11
+        }
+      }
+    }
+  },
+  "broadcast": {
+    "name": "Broadcast Quality",
+    "description": "Professional broadcast audio standards",
+    "read_only": false,
+    "is_default": false,
+    "type": "audio",
+    "processing": {
+      "voice_extraction": {
+        "min_speech_duration_ms": 3000,
+        "min_silence_duration_ms": 3000
+      },
+      "filters": {
+        "highpass": {
+          "default_freq": 60,
+          "muffled_voice_freq": 80,
+          "poles": 2
+        },
+        "denoise": {
+          "nr_mild": 8,
+          "nr_moderate": 15,
+          "nr_heavy": 22
+        },
+        "compressor": {
+          "threshold_db": -18,
+          "ratio": 3,
+          "makeup_db": 3
+        },
+        "gate": {
+          "above_floor_db": 5,
+          "ratio_heavy": 10
+        },
+        "eq": {
+          "presence_freq": 3000,
+          "presence_gain": 2
+        }
+      },
+      "loudnorm": {
+        "shorts": {
+          "I": -16,
+          "TP": -1,
+          "LRA": 7
+        },
+        "longform": {
+          "I": -18,
+          "TP": -1.5,
+          "LRA": 12
+        }
+      }
+    }
+  }
+}

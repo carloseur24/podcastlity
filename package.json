@@ -1,0 +1,15 @@
+{
+  "name": "mvp-editing-pipeline",
+  "version": "0.1.0",
+  "description": "Video content pipeline CLI with Remotion subtitle integration",
+  "private": true,
+  "scripts": {
+    "format": "./scripts/test_all.sh format",
+    "format:all": "./scripts/test_all.sh format:all",
+    "format:remotion": "./scripts/test_all.sh format:remotion",
+    "test": "./scripts/test_all.sh test",
+    "test:quick": "./scripts/test_all.sh test:quick",
+    "test:remotion": "./scripts/test_all.sh test:remotion",
+    "test:all": "./scripts/test_all.sh test:all"
+  }
+}

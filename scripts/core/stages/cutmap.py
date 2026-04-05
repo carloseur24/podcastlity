@@ -3,9 +3,10 @@
 import json
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
+from scripts.config import get_config
 from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -14,6 +15,8 @@ def run(session_id: str, workspace: str) -> dict:
 
     Uses transcript-aware cutting to keep complete sentences/phrases
     instead of cutting mid-sentence at silence points.
+
+    CAN be disabled via profile config (enable_cutting: false).
 
     Args:
         session_id: The session identifier
@@ -24,32 +27,73 @@ def run(session_id: str, workspace: str) -> dict:
     """
     workspace_path = Path(workspace)
     session_manager = SessionManager(workspace)
+    config = get_config(workspace)
 
     try:
         session = session_manager.load_session(session_id)
     except FileNotFoundError:
         raise StageError("cutmap", f"Session '{session_id}' not found")
 
-    profile_name = session.profile or "longform"
+    profile_name = session.profile or "default"
 
-    analysis_dir = workspace_path / "analysis" / session_id
-    cutmap_dir = workspace_path / "cutmaps" / session_id
+    # Check if cutting is enabled (default: disabled)
+    enable_cutting = config.get_profile_enable_cutting(profile_name)
+
+    if not enable_cutting:
+        # No cutting - keep full video
+        analysis_dir = workspace_path / "output" / "analysis" / session_id
+        cutmap_dir = workspace_path / "output" / "cutmaps" / session_id
+        cutmap_dir.mkdir(parents=True, exist_ok=True)
+
+        # Get video duration
+        camera_proxy = workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
+        if camera_proxy.exists():
+            duration = ffmpeg.get_duration(str(camera_proxy))
+        else:
+            duration = 600  # Default 10 minutes
+
+        # Create a "no-cut" cutmap
+        cutmap = {
+            "profile": profile_name,
+            "enable_cutting": False,
+            "total_input_duration_s": duration,
+            "total_output_duration_s": duration,
+            "keep_intervals": [{"start": 0, "end": duration, "type": "content"}],
+            "cut_points": [],
+        }
+
+        (cutmap_dir / f"{profile_name}.json").write_text(json.dumps(cutmap, indent=2))
+
+        session.status = "cutmapped"
+        session_manager.save_session(session)
+
+        return {
+            "cutmap_file": str(cutmap_dir / f"{profile_name}.json"),
+            "output_duration": duration,
+            "input_duration": duration,
+            "session_status": "cutmapped",
+        }
+
+    # Cutting is enabled - proceed with normal logic
+    analysis_dir = workspace_path / "output" / "analysis" / session_id
+    cutmap_dir = workspace_path / "output" / "cutmaps" / session_id
     cutmap_dir.mkdir(parents=True, exist_ok=True)
 
     silence_map = json.loads((analysis_dir / "silence_map.json").read_text())
     filler_map = json.loads((analysis_dir / "filler_map.json").read_text())
 
-    # Load transcript for smart cutting
-    transcript_file = workspace_path / "transcripts" / session_id / "segments.json"
+    # Load transcript for smart cutting (output/transcripts)
+    transcript_file = workspace_path / "output" / "transcripts" / session_id / "segments.json"
     transcript_segments = []
     if transcript_file.exists():
         transcript_segments = json.loads(transcript_file.read_text())
 
     profiles_file = workspace_path / "config" / "profiles.json"
     profiles = json.loads(profiles_file.read_text())
-    profile = profiles.get(profile_name, profiles["longform"])
+    profile = profiles.get(profile_name, profiles.get("default", {}))
 
-    camera_proxy = workspace_path / "proxies" / session_id / "camera_proxy.mp4"
+    # Camera proxy in output/proxies
+    camera_proxy = workspace_path / "output" / "proxies" / session_id / "camera_proxy.mp4"
     if camera_proxy.exists():
         duration = ffmpeg.get_duration(str(camera_proxy))
     else:
@@ -133,65 +177,36 @@ def _build_cutmap(
     if transcript_segments:
         cut_points = _snap_to_sentence_boundaries(cut_points, transcript_segments)
 
-    if profile_name == "shorts":
-        strict_cut_points = [(t, ty, d) for t, ty, d in cut_points if d >= 0.5]
-        if len(strict_cut_points) < 1:
-            keep_intervals = [{"start": 0, "end": duration, "type": "content"}]
-            duration_saved = 0
-        else:
-            cut_points = strict_cut_points
-            duration_saved = sum(d for _, _, d in cut_points)
-            keep_intervals = []
-            current_pos = 0.0
-            min_segment = 1.5
-            for cp_time, cp_type, cp_duration in cut_points:
-                if cp_time > current_pos + min_segment:
-                    keep_intervals.append(
-                        {
-                            "start": current_pos,
-                            "end": cp_time,
-                            "type": "content",
-                        }
-                    )
-                    current_pos = cp_time + cp_duration
-            if current_pos < duration:
-                keep_intervals.append(
-                    {
-                        "start": current_pos,
-                        "end": duration,
-                        "type": "content",
-                    }
-                )
-    else:
-        duration_saved = sum(d for _, _, d in cut_points)
-        keep_intervals = []
-        current_pos = 0.0
+    # Default behavior - no shorts-specific logic
+    duration_saved = sum(d for _, _, d in cut_points)
+    keep_intervals = []
+    current_pos = 0.0
 
-        if silence_map.get("silence_intervals"):
-            first_silence = silence_map["silence_intervals"][0]
-            if first_silence.get("type") == "leading":
-                current_pos = first_silence["end"]
+    if silence_map.get("silence_intervals"):
+        first_silence = silence_map["silence_intervals"][0]
+        if first_silence.get("type") == "leading":
+            current_pos = first_silence["end"]
 
-        min_segment = 2.0
-        for cp_time, cp_type, cp_duration in cut_points:
-            if cp_time > current_pos + min_segment:
-                keep_intervals.append(
-                    {
-                        "start": current_pos,
-                        "end": cp_time,
-                        "type": "content",
-                    }
-                )
-                current_pos = cp_time + cp_duration
-
-        if current_pos < duration:
+    min_segment = 2.0
+    for cp_time, cp_type, cp_duration in cut_points:
+        if cp_time > current_pos + min_segment:
             keep_intervals.append(
                 {
                     "start": current_pos,
-                    "end": duration,
+                    "end": cp_time,
                     "type": "content",
                 }
             )
+            current_pos = cp_time + cp_duration
+
+    if current_pos < duration:
+        keep_intervals.append(
+            {
+                "start": current_pos,
+                "end": duration,
+                "type": "content",
+            }
+        )
 
     output_duration = sum(i["end"] - i["start"] for i in keep_intervals)
 
@@ -207,9 +222,7 @@ def _build_cutmap(
         "removed_fillers": len(filler_map.get("fillers", [])),
         "hook_start_s": keep_intervals[0]["start"] if keep_intervals else 0,
         "title": title,
-        "agent_notes": "Transcript-aware cutmap"
-        if transcript_segments
-        else "Algorithmic cutmap",
+        "agent_notes": "Transcript-aware cutmap" if transcript_segments else "Algorithmic cutmap",
     }
 
 

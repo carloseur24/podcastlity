@@ -3,8 +3,8 @@
 import json
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
 from scripts.core.exceptions import StageError
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -26,15 +26,17 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("transcribe", f"Session '{session_id}' not found")
 
-    audio_path = workspace_path / "audio" / session_id / "master_voice.wav"
+    # Audio now in output/audio
+    audio_path = workspace_path / "output" / "audio" / session_id / "master_voice.wav"
     if not audio_path.exists():
         # Fall back to master.wav if voice extraction not done
-        audio_path = workspace_path / "audio" / session_id / "master.wav"
+        audio_path = workspace_path / "output" / "audio" / session_id / "master.wav"
 
     if not audio_path.exists():
         raise StageError("transcribe", f"Audio not found: {audio_path}")
 
-    transcript_dir = workspace_path / "transcripts" / session_id
+    # Transcripts go in output/transcripts
+    transcript_dir = workspace_path / "output" / "transcripts" / session_id
     transcript_dir.mkdir(parents=True, exist_ok=True)
 
     try:

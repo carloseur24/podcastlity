@@ -1,8 +1,8 @@
-import subprocess
 import json
 import re
+import subprocess
 from pathlib import Path
-from typing import Optional
+
 import imageio_ffmpeg
 
 from scripts.config import get_config
@@ -450,8 +450,8 @@ def enhance_audio(
 def export_full_quality(
     input_path: str,
     output_path: str,
-    start: Optional[float] = None,
-    end: Optional[float] = None,
+    start: float | None = None,
+    end: float | None = None,
 ) -> None:
     """
     Export in full quality (or original) quality.
@@ -562,4 +562,66 @@ def convert_to_vertical(input_path: str, output_path: str) -> None:
         "copy",
         output_path,
     ]
+    run_ffmpeg(args)
+
+
+def adjust_video_colors(
+    input_path: str,
+    output_path: str,
+    brightness: float = 0.0,
+    contrast: float = 1.0,
+    saturation: float = 1.0,
+    temperature: float = 0.0,
+) -> None:
+    """
+    Adjust video colors using FFmpeg eq filter.
+
+    Args:
+        input_path: Input video path
+        output_path: Output video path
+        brightness: Brightness adjustment (-1 to 1, default 0)
+        contrast: Contrast adjustment (0 to 2, default 1)
+        saturation: Saturation adjustment (0 to 3, default 1)
+        temperature: Color temperature adjustment (-100 to 100, default 0)
+    """
+    # Build eq filter string
+    filters = []
+
+    if brightness != 0:
+        filters.append(f"brightness={brightness}")
+
+    if contrast != 1.0:
+        filters.append(f"contrast={contrast}")
+
+    if saturation != 1.0:
+        filters.append(f"saturation={saturation}")
+
+    if temperature != 0:
+        # Simple temperature shift using colorbalance
+        # Positive = warmer (more red/yellow), Negative = cooler (more blue)
+        filters.append(f"colorbalance=rs={temperature / 100}")
+
+    if not filters:
+        # No adjustments, just copy
+        args = [
+            "-y",
+            "-i",
+            input_path,
+            "-c",
+            "copy",
+            output_path,
+        ]
+    else:
+        filter_str = ",".join(filters)
+        args = [
+            "-y",
+            "-i",
+            input_path,
+            "-vf",
+            f"eq={filter_str}",
+            "-c:a",
+            "copy",
+            output_path,
+        ]
+
     run_ffmpeg(args)

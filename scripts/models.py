@@ -1,26 +1,19 @@
-from pathlib import Path
-from typing import Optional, Literal
 from datetime import datetime
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
 class Session(BaseModel):
     session_id: str
     topic: str
-    platform_targets: list[str] = Field(
-        default_factory=lambda: ["youtube_lf", "shorts"]
-    )
-    profile: Optional[Literal["longform", "shorts", "both"]] = "longform"
-    goal: str = "educativo"
-    tone: str = "directo"
+    platform_targets: list[str] = Field(default_factory=lambda: ["youtube_lf"])
+    profile: Literal["default"] | None = "default"
     cta: str = "Suscribete"
     rough_duration_min: int = 10
-    camera_file: str = ""
-    screen_file: str = ""
-    sync_offset_seconds: float = 0.0
-    sync_method: Literal["manual", "auto"] = "manual"
+    video_file: str = ""
     created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
-    status: Optional[
+    status: (
         Literal[
             "created",
             "ingested",
@@ -34,7 +27,8 @@ class Session(BaseModel):
             "exported",
             "done",
         ]
-    ] = "created"
+        | None
+    ) = "created"
 
 
 class Word(BaseModel):
@@ -119,11 +113,11 @@ class KeepInterval(BaseModel):
     start: float
     end: float
     type: Literal["hook", "content", "broll", "transition"] = "content"
-    scene_id: Optional[int] = None
+    scene_id: int | None = None
 
 
 class CutMap(BaseModel):
-    profile: str = "shorts"
+    profile: str = "default"
     total_input_duration_s: float = 0.0
     total_output_duration_s: float = 0.0
     keep_intervals: list[KeepInterval] = Field(default_factory=list)
@@ -157,7 +151,7 @@ class BriefSceneOutline(BaseModel):
 class Brief(BaseModel):
     titles: list[str] = Field(default_factory=list)
     hooks: list[BriefHook] = Field(default_factory=list)
-    thumbnail_concept: Optional[BriefThumbnailConcept] = None
+    thumbnail_concept: BriefThumbnailConcept | None = None
     scene_outline: list[BriefSceneOutline] = Field(default_factory=list)
     broll_ideas: list[str] = Field(default_factory=list)
     motion_style: Literal["energetico", "limpio", "cinematico"] = "limpio"

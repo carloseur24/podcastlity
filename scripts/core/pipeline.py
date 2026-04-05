@@ -1,29 +1,28 @@
 """Pipeline orchestrator - coordinates all pipeline stages."""
 
-from typing import Callable, Optional
+from collections.abc import Callable
 from dataclasses import dataclass
 
-from scripts.utils.session import SessionManager
-from scripts.core.exceptions import StageError, StageNotFoundError, SessionNotFoundError
-
+from scripts.core.exceptions import SessionNotFoundError, StageError, StageNotFoundError
 from scripts.core.stages import (
+    analyze,
+    assemble,
+    cutmap,
+    export,
     ingest,
     proxies,
-    voice_extract,
-    transcribe,
-    analyze,
-    cutmap,
-    assemble,
     subtitles,
-    export,
+    transcribe,
+    voice_extract,
 )
+from scripts.utils.session import SessionManager
 
 
 @dataclass
 class StageInfo:
     name: str
     status_key: str
-    module: Optional[callable]
+    module: Callable | None
     description: str
 
 
@@ -32,38 +31,19 @@ class Pipeline:
     Pipeline orchestrator for video content processing.
 
     Coordinates all stages and provides callbacks for UI integration.
+    Single pipeline - no shorts/longform distinction.
     """
 
-    LONGFORM_STAGES = [
+    # Single pipeline - all stages in order
+    STAGES = [
         StageInfo("Ingest", "ingested", ingest, "Copy files to session directory"),
         StageInfo("Proxies", "proxied", proxies, "Create proxies and extract audio"),
-        StageInfo(
-            "VoiceExtract", "voice_extracted", voice_extract, "Extract voice using VAD"
-        ),
+        StageInfo("VoiceExtract", "voice_extracted", voice_extract, "Extract voice using VAD"),
         StageInfo("Transcribe", "transcribed", transcribe, "Whisper speech-to-text"),
         StageInfo("Analyze", "analyzed", analyze, "Silence/filler/energy detection"),
         StageInfo("Cutmap", "cutmapped", cutmap, "Generate edit decisions"),
         StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
-        StageInfo(
-            "Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"
-        ),
-        StageInfo("Export", "exported", export, "Render final videos"),
-    ]
-
-    SHORTS_STAGES = [
-        StageInfo("Ingest", "ingested", ingest, "Copy files to session directory"),
-        StageInfo("Proxies", "proxied", proxies, "Create proxies and extract audio"),
-        StageInfo(
-            "VoiceExtract",
-            "voice_extracted",
-            voice_extract,
-            "Extract voice + noise reduction",
-        ),
-        StageInfo("Prepare", "cutmapped", None, "Analyze + cutmap"),
-        StageInfo("Assemble", "assembled", assemble, "Trim and concatenate"),
-        StageInfo(
-            "Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"
-        ),
+        StageInfo("Subtitles", "subtitled", subtitles, "Apply Remotion kinetic subtitles"),
         StageInfo("Export", "exported", export, "Render final videos"),
     ]
 
@@ -77,16 +57,14 @@ class Pipeline:
         self.workspace = workspace
         self.session_manager = SessionManager(workspace)
 
-    def get_stages_for_profile(self, profile: str) -> list[StageInfo]:
-        """Get stage list for profile."""
-        if profile == "shorts":
-            return self.SHORTS_STAGES
-        return self.LONGFORM_STAGES
+    def get_stages_for_profile(self, profile: str = "default") -> list[StageInfo]:
+        """Get stage list - single pipeline for all profiles."""
+        return self.STAGES
 
     def run_full(
         self,
         session_id: str,
-        on_progress: Optional[Callable[[str, str], None]] = None,
+        on_progress: Callable[[str, str], None] | None = None,
     ) -> dict:
         """
         Run full pipeline for a session.
@@ -103,8 +81,7 @@ class Pipeline:
         except FileNotFoundError:
             raise SessionNotFoundError(f"Session '{session_id}' not found")
 
-        profile = session.profile or "longform"
-        stages = self.get_stages_for_profile(profile)
+        stages = self.STAGES
 
         current_status = session.status or "created"
 
@@ -120,11 +97,7 @@ class Pipeline:
                 on_progress(stage.name, "running")
 
             try:
-                if stage.name == "Prepare" and profile == "shorts":
-                    result = self._run_prepare(session_id)
-                else:
-                    result = stage.module.run(session_id, self.workspace)
-
+                result = stage.module.run(session_id, self.workspace)
                 results[stage.status_key] = result
 
                 if on_progress:
@@ -153,8 +126,7 @@ class Pipeline:
         except FileNotFoundError:
             raise SessionNotFoundError(f"Session '{session_id}' not found")
 
-        profile = session.profile or "longform"
-        stages = self.get_stages_for_profile(profile)
+        stages = self.STAGES
 
         stage_info = None
         for s in stages:
@@ -165,39 +137,24 @@ class Pipeline:
         if not stage_info:
             raise StageNotFoundError(f"Stage '{stage_name}' not found")
 
-        if stage_info.name == "Prepare" and profile == "shorts":
-            return self._run_prepare(session_id)
-
         if stage_info.module is None:
             raise StageError(stage_info.name, "No module defined for this stage")
 
         return stage_info.module.run(session_id, self.workspace)
-
-    def _run_prepare(self, session_id: str) -> dict:
-        """Run combined prepare stage for shorts (analyze + cutmap)."""
-        analyze_result = analyze.run(session_id, self.workspace)
-
-        cutmap_result = cutmap.run(session_id, self.workspace)
-
-        return {
-            "analyze": analyze_result,
-            "cutmap": cutmap_result,
-        }
 
     def get_session_status(self, session_id: str) -> str:
         """Get current session status."""
         session = self.session_manager.load_session(session_id)
         return session.status or "created"
 
-    def get_available_stages(self, session_id: str) -> list[StageInfo]:
+    def get_available_stages(self, session_id: str) -> list[tuple[StageInfo, bool]]:
         """Get list of stages with their completion status."""
         try:
             session = self.session_manager.load_session(session_id)
         except FileNotFoundError:
             return []
 
-        profile = session.profile or "longform"
-        stages = self.get_stages_for_profile(profile)
+        stages = self.STAGES
 
         current_status = session.status or "created"
 

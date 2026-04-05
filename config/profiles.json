@@ -1,43 +1,8 @@
 {
-  "shorts": {
+  "default": {
     "silence_threshold_db": -40,
-    "silence_min_duration_s": 0.3,
-    "collapse_to_s": 0.12,
-    "trim_pad_before_s": 0.05,
-    "trim_pad_after_s": 0.08,
-    "remove_fillers": true,
-    "filler_confidence_threshold": 0.75,
-    "low_energy_min_duration_s": 2.0,
-    "target_duration_s": 90,
-    "max_duration_s": 60,
-    "caption_words_per_line": 3,
-    "caption_style": "kinetic",
-    "pip_position": "bottom_right",
-    "pip_size_ratio": 0.3,
-    "aspect_ratio": "9:16",
-    "resolution": "1080x1920",
-    "voice_extract": {
-      "min_speech_duration_ms": 250,
-      "min_silence_duration_ms": 500
-    }
-  },
-  "longform": {
-    "silence_threshold_db": -42,
-    "silence_min_duration_s": 0.5,
-    "collapse_to_s": 0.25,
-    "trim_pad_before_s": 0.1,
-    "trim_pad_after_s": 0.12,
-    "remove_fillers": false,
-    "filler_confidence_threshold": 0.9,
-    "low_energy_min_duration_s": 5.0,
-    "target_duration_s": null,
-    "max_duration_s": null,
-    "caption_words_per_line": 7,
-    "caption_style": "default",
-    "pip_position": "bottom_right",
-    "pip_size_ratio": 0.167,
-    "aspect_ratio": "16:9",
-    "resolution": "1920x1080",
+    "silence_min_duration_s": 0.8,
+    "enable_cutting": false,
     "voice_extract": {
       "min_speech_duration_ms": 2500,
       "min_silence_duration_ms": 2500

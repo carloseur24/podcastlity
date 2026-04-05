@@ -4,15 +4,15 @@ import json
 import subprocess
 from pathlib import Path
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
-from scripts.utils.transcript_adapter import (
-    load_transcript,
-    convert_to_remotion_captions,
-    get_preset_for_profile,
-    export_captions_json,
-)
 from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
+from scripts.utils.transcript_adapter import (
+    convert_to_remotion_captions,
+    export_captions_json,
+    get_preset_for_profile,
+    load_transcript,
+)
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -41,7 +41,7 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("subtitles", f"Session '{session_id}' not found")
 
-    profile = session.profile or "longform"
+    profile = session.profile or "default"
 
     # Load preset for this profile
     preset_name, preset_config = get_preset_for_profile(workspace, profile)
@@ -69,8 +69,8 @@ def run(session_id: str, workspace: str) -> dict:
     print(f"[subtitles] Presets file exists: {presets_file.exists()}")
 
     # Find input video (from Assemble stage)
-    proxies_dir = workspace_path / "proxies" / session_id
-    exports_dir = workspace_path / "exports" / session_id
+    proxies_dir = workspace_path / "output" / "proxies" / session_id
+    exports_dir = workspace_path / "output" / "exports" / session_id
     exports_dir.mkdir(parents=True, exist_ok=True)
 
     # Use assembled video as input
@@ -84,10 +84,13 @@ def run(session_id: str, workspace: str) -> dict:
     print(f"[subtitles] Input video codec: {video_codec}")
 
     remotion_dir = workspace_path / "remotion"
-    input_video = remotion_dir / "input_video.mp4"
+    # Copy video to public folder for Remotion bundling
+    public_dir = remotion_dir / "public"
+    public_dir.mkdir(parents=True, exist_ok=True)
+    input_video = public_dir / "input_video.mp4"
 
     if video_codec != "h264":
-        print(f"[subtitles] Transcoding to H.264 for Remotion compatibility...")
+        print("[subtitles] Transcoding to H.264 for Remotion compatibility...")
         ffmpeg.transcode_to_h264_baseline(str(assembled_file), str(input_video))
     else:
         import shutil
@@ -108,9 +111,7 @@ def run(session_id: str, workspace: str) -> dict:
     render_script = remotion_dir / "render.js"
 
     if not render_script.exists():
-        raise StageError(
-            "subtitles", f"Remotion render script not found: {render_script}"
-        )
+        raise StageError("subtitles", f"Remotion render script not found: {render_script}")
 
     # Build command
     cmd = [
@@ -126,7 +127,7 @@ def run(session_id: str, workspace: str) -> dict:
         str(height),
     ]
 
-    print(f"[subtitles] Running Remotion render...")
+    print("[subtitles] Running Remotion render...")
     print(f"[subtitles] Command: {' '.join(cmd)}")
     print(f"[subtitles] Working dir: {workspace_path}")
 

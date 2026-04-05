@@ -3,14 +3,13 @@
 import json
 import subprocess
 from pathlib import Path
-from typing import Optional
 
 import numpy as np
 from scipy.io import wavfile
 
-from scripts.utils.session import SessionManager
-from scripts.utils import ffmpeg
 from scripts.core.exceptions import StageError
+from scripts.utils import ffmpeg
+from scripts.utils.session import SessionManager
 
 
 def run(session_id: str, workspace: str) -> dict:
@@ -32,11 +31,12 @@ def run(session_id: str, workspace: str) -> dict:
     except FileNotFoundError:
         raise StageError("analyze", f"Session '{session_id}' not found")
 
-    audio_path = workspace_path / "audio" / session_id / "master_voice.wav"
+    audio_path = workspace_path / "output" / "audio" / session_id / "master_voice.wav"
     if not audio_path.exists():
-        audio_path = workspace_path / "audio" / session_id / "master.wav"
+        audio_path = workspace_path / "output" / "audio" / session_id / "master.wav"
 
-    analysis_dir = workspace_path / "analysis" / session_id
+    # Analysis goes in output/analysis
+    analysis_dir = workspace_path / "output" / "analysis" / session_id
     analysis_dir.mkdir(parents=True, exist_ok=True)
 
     if not audio_path.exists():
@@ -71,14 +71,12 @@ def run(session_id: str, workspace: str) -> dict:
 def _load_filler_words(workspace_path: Path) -> list[str]:
     filler_file = workspace_path / "config" / "filler_words_es.txt"
     if filler_file.exists():
-        return [
-            w.strip().lower() for w in filler_file.read_text().splitlines() if w.strip()
-        ]
+        return [w.strip().lower() for w in filler_file.read_text().splitlines() if w.strip()]
     return []
 
 
 def _load_transcript(workspace_path: Path, session_id: str) -> list:
-    transcript_file = workspace_path / "transcripts" / session_id / "segments.json"
+    transcript_file = workspace_path / "output" / "transcripts" / session_id / "segments.json"
     if transcript_file.exists():
         return json.loads(transcript_file.read_text())
     return []

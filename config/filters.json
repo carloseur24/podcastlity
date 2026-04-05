@@ -80,12 +80,7 @@
     "ceiling_db": -1.0
   },
   "loudnorm": {
-    "shorts": {
-      "I": -14,
-      "TP": -1,
-      "LRA": 6
-    },
-    "longform": {
+    "default": {
       "I": -16,
       "TP": -1.5,
       "LRA": 11
