@@ -258,33 +258,305 @@ def run_continue_session() -> None:
 
         menus.console.print(f"\n[bold cyan]=== {session_id} ===[/bold cyan]")
         menus.console.print(f"Estado: [yellow]{current_stage}[/yellow]")
-        menus.console.print(f"Perfil: {session.profile or 'default'} | Tema: {session.topic}")
+        menus.console.print(f"Video: {session.topic}")
         menus.console.print()
-        menus.console.print("  1. [green]Ejecutar todo el pipeline[/green]")
-        menus.console.print("  2. [cyan]Ejecutar etapa especifica[/cyan]")
-        menus.console.print("  3. [magenta]Ver resultados[/magenta]")
+        menus.console.print("  1. [green]Procesar Audio[/green]")
+        menus.console.print("  2. [cyan]Agregar Subtítulos[/cyan]")
+        menus.console.print("  3. [magenta]Coloración (Opcional)[/magenta]")
+        menus.console.print("  4. [yellow]Ver resultados[/yellow]")
         menus.console.print("  0. [dim]Volver al menu principal[/dim]")
 
         choice = menus.Prompt.ask(
             "\n[bold]Selecciona[/bold]",
-            choices=["0", "1", "2", "3"],
+            choices=["0", "1", "2", "3", "4"],
             default="",
         )
 
         if choice == "0":
             break
         elif choice == "1":
-            run_pipeline(session_id)
+            run_audio_processing_menu(session_id)
             menus.Prompt.ask("\n[dim]Presiona Enter para volver...[/dim]", default="")
             menus.clear_screen()
         elif choice == "2":
-            run_single_stage(session_id)
+            run_stage_3_subtitles(session_id)
             menus.Prompt.ask("\n[dim]Presiona Enter para volver...[/dim]", default="")
             menus.clear_screen()
         elif choice == "3":
+            run_stage_4_coloring(session_id)
+            menus.Prompt.ask("\n[dim]Presiona Enter para volver...[/dim]", default="")
+            menus.clear_screen()
+        elif choice == "4":
             view_results(session_id)
             menus.Prompt.ask("\n[dim]Presiona Enter para volver...[/dim]", default="")
             menus.clear_screen()
+
+
+def edit_filter_parameters(session_id: str, audio_config: dict) -> None:
+    """Edit parameters for a specific filter."""
+    from scripts.config import ConfigProvider
+    from scripts.ui import menus
+
+    config = ConfigProvider(WORKSPACE_ROOT)
+
+    # Map filter keys to display names and parameter definitions
+    filter_info = {
+        "highpass": {
+            "name": "Highpass",
+            "params": [
+                ("frequency", "Frecuencia (Hz)", 60, 200, 80),
+                ("poles", "Polos (1-2)", 1, 2, 2),
+            ],
+        },
+        "eq_boxiness": {
+            "name": "EQ Boxiness",
+            "params": [
+                ("frequency", "Frecuencia (Hz)", 300, 600, 450),
+                ("gain", "Ganancia (dB)", -12, 0, -3),
+                ("width", "Ancho de banda (Hz)", 100, 500, 300),
+            ],
+        },
+        "compressor": {
+            "name": "Compressor",
+            "params": [
+                ("threshold", "Umbral (dB)", -60, 0, -24),
+                ("ratio", "Ratio (1:1 a 20:1)", 1, 20, 3.5),
+                ("attack", "Attack (ms)", 0, 50, 5),
+                ("release", "Release (ms)", 10, 500, 100),
+                ("makeup", "Makeup (dB)", 0, 20, 4),
+                ("knee", "Knee (dB)", 0, 10, 1),
+            ],
+        },
+        "highshelf": {
+            "name": "High Shelf",
+            "params": [
+                ("frequency", "Frecuencia (Hz)", 5000, 15000, 10000),
+                ("gain", "Ganancia (dB)", -12, 12, 3),
+            ],
+        },
+        "limiter": {
+            "name": "Limiter",
+            "params": [
+                ("ceiling", "Ceiling (dB)", -12, 0, -1),
+            ],
+        },
+        "loudnorm": {
+            "name": "Loudnorm",
+            "params": [
+                ("I", "Target I (LUFS)", -24, -9, -16),
+                ("TP", "True Peak (dB)", -6, 0, -1.5),
+                ("LRA", "LRA (LU)", 1, 20, 11),
+            ],
+        },
+    }
+
+    while True:
+        menus.console.print("\n[bold cyan]=== Editar Parámetros ===[/bold cyan]\n")
+
+        # Show filter list
+        for i, (key, info) in enumerate(filter_info.items(), 1):
+            filter_data = audio_config.get(key, {})
+            enabled = filter_data.get("enabled", False)
+            status = "[✓]" if enabled else "[✗]"
+            menus.console.print(f"  {i}. {status} {info['name']}")
+
+        menus.console.print("  0. Volver")
+
+        choice = menus.Prompt.ask(
+            "\n[bold]Selecciona filtro[/bold]",
+            choices=["0"] + [str(i) for i in range(1, len(filter_info) + 1)],
+            default="",
+        )
+
+        if choice == "0":
+            break
+
+        # Get selected filter
+        filter_key = list(filter_info.keys())[int(choice) - 1]
+        filter_data = audio_config.get(filter_key, {})
+        info = filter_info[filter_key]
+
+        # Check if filter is enabled
+        if not filter_data.get("enabled", False):
+            menus.print_warning(
+                f"{info['name']} está deshabilitado. Habilítalo primero para editar parámetros."
+            )
+            continue
+
+        # Edit parameters for selected filter
+        while True:
+            menus.console.print(f"\n[bold]Editar: {info['name']}[/bold]\n")
+
+            # Show current parameters
+            for j, (param_key, param_label, min_val, max_val, default) in enumerate(
+                info["params"], 1
+            ):
+                current = filter_data.get(param_key, default)
+                menus.console.print(f"  {j}. {param_label}: {current}")
+
+            menus.console.print("  0. Listo")
+
+            param_choice = menus.Prompt.ask(
+                "\n[bold]Selecciona parámetro[/bold]",
+                choices=["0"] + [str(j) for j in range(1, len(info["params"]) + 1)],
+                default="",
+            )
+
+            if param_choice == "0":
+                break
+
+            # Get selected parameter
+            param_key, param_label, min_val, max_val, default = info["params"][
+                int(param_choice) - 1
+            ]
+            current = filter_data.get(param_key, default)
+
+            # Ask for new value
+            menus.console.print(f"\n[dim]Valor actual: {current}[/dim]")
+            new_value = menus.Prompt.ask(
+                f"[bold]Nuevo valor para {param_label}[/bold]",
+                default=str(current),
+            )
+
+            # Validate and convert
+            try:
+                if param_key == "ratio":
+                    new_val = float(new_value)
+                    if new_val < min_val or new_val > max_val:
+                        menus.print_error(f"Valor debe estar entre {min_val} y {max_val}")
+                        continue
+                elif param_key in ["frequency", "poles", "attack", "release", "width"]:
+                    new_val = int(new_value)
+                    if new_val < min_val or new_val > max_val:
+                        menus.print_error(f"Valor debe estar entre {min_val} and {max_val}")
+                        continue
+                else:
+                    new_val = float(new_value)
+                    if new_val < min_val or new_val > max_val:
+                        menus.print_error(f"Valor debe estar entre {min_val} y {max_val}")
+                        continue
+
+                # Update parameter
+                audio_config[filter_key] = audio_config.get(filter_key, {})
+                audio_config[filter_key][param_key] = new_val
+                config.save_session_audio_config(WORKSPACE_ROOT, session_id, audio_config)
+                menus.print_success(f"{param_label} actualizado a {new_val}")
+
+            except ValueError:
+                menus.print_error("Valor inválido. Ingresa un número.")
+
+
+def run_audio_processing_menu(session_id: str) -> None:
+    """Show audio processing menu with toggles and edit options."""
+    from scripts.config import ConfigProvider
+
+    config = ConfigProvider(WORKSPACE_ROOT)
+    audio_config = config.get_session_audio_config(WORKSPACE_ROOT, session_id)
+
+    while True:
+        menus.console.print(f"\n[bold cyan]=== Procesar Audio: {session_id} ===[/bold cyan]\n")
+
+        # Display current configuration
+        menus.console.print("[bold]Configuración actual:[/bold]\n")
+
+        filter_names = {
+            "highpass": "Highpass",
+            "eq_boxiness": "EQ Boxiness",
+            "compressor": "Compressor",
+            "highshelf": "High Shelf",
+            "limiter": "Limiter",
+            "loudnorm": "Loudnorm",
+        }
+
+        for filter_key, filter_name in filter_names.items():
+            filter_data = audio_config.get(filter_key, {})
+            enabled = filter_data.get("enabled", False)
+            status = "[✓]" if enabled else "[✗]"
+            desc = filter_data.get("description", "")
+
+            # Show key parameters
+            params = []
+            if filter_key == "highpass":
+                params.append(f"{filter_data.get('frequency', 80)}Hz")
+                params.append(f"{filter_data.get('poles', 2)} poles")
+            elif filter_key == "eq_boxiness":
+                params.append(f"{filter_data.get('frequency', 450)}Hz")
+                params.append(f"{filter_data.get('gain', -3)}dB")
+            elif filter_key == "compressor":
+                params.append(f"{filter_data.get('threshold', -24)}dB")
+                params.append(f"{filter_data.get('ratio', 3.5)}:1")
+            elif filter_key == "highshelf":
+                params.append(f"{filter_data.get('frequency', 10000)}Hz")
+                params.append(f"{filter_data.get('gain', 3)}dB")
+            elif filter_key == "limiter":
+                params.append(f"{filter_data.get('ceiling', -1)}dB")
+            elif filter_key == "loudnorm":
+                params.append(f"{filter_data.get('I', -16)} LUFS")
+                params.append(f"{filter_data.get('TP', -1.5)}dB TP")
+
+            param_str = " | ".join(params) if params else ""
+            menus.console.print(f"  {status} [bold]{filter_name}[/bold] {param_str} - {desc}")
+
+        menus.console.print()
+        menus.console.print("  1. Toggle Highpass")
+        menus.console.print("  2. Toggle EQ Boxiness")
+        menus.console.print("  3. Toggle Compressor")
+        menus.console.print("  4. Toggle High Shelf")
+        menus.console.print("  5. Toggle Limiter")
+        menus.console.print("  6. Toggle Loudnorm")
+        menus.console.print("  7. Editar parámetros")
+        menus.console.print("  8. Restaurar defaults")
+        menus.console.print("  9. [green]Procesar audio[/green]")
+        menus.console.print("  0. Volver")
+
+        choice = menus.Prompt.ask(
+            "\n[bold]Selecciona[/bold]",
+            choices=["0", "1", "2", "3", "4", "5", "6", "7", "8", "9"],
+            default="",
+        )
+
+        if choice == "0":
+            break
+        elif choice in ["1", "2", "3", "4", "5", "6"]:
+            filter_keys = [
+                "highpass",
+                "eq_boxiness",
+                "compressor",
+                "highshelf",
+                "limiter",
+                "loudnorm",
+            ]
+            filter_key = filter_keys[int(choice) - 1]
+            current_enabled = audio_config.get(filter_key, {}).get("enabled", False)
+            audio_config[filter_key] = audio_config.get(filter_key, {})
+            audio_config[filter_key]["enabled"] = not current_enabled
+            config.save_session_audio_config(WORKSPACE_ROOT, session_id, audio_config)
+            menus.print_success(
+                f"{filter_key} {'habilitado' if not current_enabled else 'deshabilitado'}"
+            )
+        elif choice == "7":
+            # Edit parameters
+            edit_filter_parameters(session_id, audio_config)
+            # Reload config after editing
+            audio_config = config.get_session_audio_config(WORKSPACE_ROOT, session_id)
+        elif choice == "8":
+            # Restore defaults
+            default_config = config.get_audio_processing_config()
+            config.save_session_audio_config(WORKSPACE_ROOT, session_id, default_config)
+            audio_config = default_config
+            menus.print_success("Configuración restaurada a defaults")
+        elif choice == "9":
+            # Run voice extract stage
+            menus.console.print("\n[bold]Ejecutando procesamiento de audio...[/bold]")
+            from scripts.core.stages import voice_extract
+
+            try:
+                result = voice_extract.run(session_id, WORKSPACE_ROOT)
+                menus.print_success(
+                    f"Audio procesado: {result.get('voice_duration', 0):.1f}s de voz"
+                )
+            except Exception as e:
+                menus.print_error(f"Error: {e}")
 
 
 def run_pipeline(session_id: str) -> None:
@@ -1185,22 +1457,7 @@ def main():
                 list_sessions()
             elif choice == "4":
                 menus.clear_screen()
-                run_stage_1_audio()
-            elif choice == "5":
-                menus.clear_screen()
-                run_stage_3_subtitles()
-            elif choice == "6":
-                menus.clear_screen()
-                run_stage_4_coloring()
-            elif choice == "7":
-                menus.clear_screen()
-                run_presets_menu()
-            elif choice == "8":
-                menus.clear_screen()
                 run_settings()
-            elif choice == "9":
-                menus.clear_screen()
-                run_audio_preview_select()
 
             if choice != "0":
                 menus.Prompt.ask("\n[dim]Presiona Enter para continuar...[/dim]", default="")
