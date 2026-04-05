@@ -34,8 +34,6 @@ class SessionManager:
         session_id: str,
         topic: str,
         profile: str = "default",
-        goal: str = "educativo",
-        tone: str = "directo",
         cta: str = "Suscribete",
         duration: int = 10,
     ) -> Session:
@@ -43,8 +41,6 @@ class SessionManager:
             session_id=session_id,
             topic=topic,
             profile=profile,  # type: ignore
-            goal=goal,
-            tone=tone,
             cta=cta,
             rough_duration_min=duration,
         )
