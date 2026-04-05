@@ -48,8 +48,6 @@ class TestSessionManager:
             session_id="new_session",
             topic="Test Topic",
             profile="default",
-            goal="entretenimiento",
-            tone="casual",
             cta="Like y subscribe",
             duration=5,
         )
@@ -57,8 +55,6 @@ class TestSessionManager:
         assert new_session.session_id == "new_session"
         assert new_session.topic == "Test Topic"
         assert new_session.profile == "default"
-        assert new_session.goal == "entretenimiento"
-        assert new_session.tone == "casual"
         assert new_session.cta == "Like y subscribe"
         assert new_session.rough_duration_min == 5
         assert new_session.status == "created"
