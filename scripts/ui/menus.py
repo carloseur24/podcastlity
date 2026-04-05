@@ -150,45 +150,6 @@ def prompt_profile() -> str:
     return "default"
 
 
-def prompt_goal() -> str:
-    console.print("\n[bold]Objetivo del video:[/bold]")
-    console.print("  1. [cyan]Educativo[/cyan]")
-    console.print("  2. [cyan]Entretenimiento[/cyan]")
-    console.print("  3. [cyan]Tutorial[/cyan]")
-    console.print("  4. [cyan]Review[/cyan]")
-
-    choice = Prompt.ask(
-        "\n[bold cyan]Selecciona[/bold cyan]",
-        choices=["1", "2", "3", "4"],
-        default="1",
-    )
-
-    goals = {"1": "educativo", "2": "entretenimiento", "3": "tutorial", "4": "review"}
-    return goals[choice]
-
-
-def prompt_tone() -> str:
-    console.print("\n[bold]Tono del video:[/bold]")
-    console.print("  1. [cyan]Directo y prático[/cyan]")
-    console.print("  2. [cyan]Amigable[/cyan]")
-    console.print("  3. [cyan]Profesional[/cyan]")
-    console.print("  4. [cyan]Casual[/cyan]")
-
-    choice = Prompt.ask(
-        "\n[bold cyan]Selecciona[/bold cyan]",
-        choices=["1", "2", "3", "4"],
-        default="1",
-    )
-
-    tones = {
-        "1": "directo y prático",
-        "2": "amigable",
-        "3": "profesional",
-        "4": "casual",
-    }
-    return tones[choice]
-
-
 def print_file_picker_menu(
     mode: str,
     files: list,
