@@ -183,15 +183,9 @@ def mock_session(workspace_root: Path, sample_session_id: str) -> dict:
         "topic": "Test Topic",
         "platform_targets": ["youtube_lf"],
         "profile": "default",
-        "goal": "educativo",
-        "tone": "directo",
         "cta": "Suscribete",
         "rough_duration_min": 10,
-        "camera_file": "",
-        "screen_file": "",
-        "sync_offset_seconds": 0.0,
-        "sync_method": "manual",
-        "status": "created",
+        "video_file": "",
     }
 
 
