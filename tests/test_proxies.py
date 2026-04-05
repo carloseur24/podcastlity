@@ -21,11 +21,18 @@ class TestProxiesStage:
 
     def test_run_creates_directories(self, workspace_root, sample_session_id):
         """Test directories are created."""
-        # Create session with camera file
+        # Create session directory with input video
+        session_dir = workspace_root / "data" / "recordings" / sample_session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        # Create mock input video
+        input_video = session_dir / "input.mp4"
+        input_video.write_text("mock video")
+
         session = Session(
             session_id=sample_session_id,
             topic="Test",
-            camera_file="data/recordings/test/camera.mp4",
+            video_file=str(input_video),
         )
         sm = SessionManager(str(workspace_root))
         sm.save_session(session)
@@ -43,10 +50,16 @@ class TestProxiesStage:
 
     def test_run_updates_status(self, workspace_root, sample_session_id):
         """Test session status is updated."""
+        session_dir = workspace_root / "data" / "recordings" / sample_session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        input_video = session_dir / "input.mp4"
+        input_video.write_text("mock video")
+
         session = Session(
             session_id=sample_session_id,
             topic="Test",
-            camera_file="data/recordings/test/camera.mp4",
+            video_file=str(input_video),
         )
         sm = SessionManager(str(workspace_root))
         sm.save_session(session)
@@ -61,10 +74,16 @@ class TestProxiesStage:
 
     def test_run_returns_proxy_paths(self, workspace_root, sample_session_id):
         """Test proxy paths returned."""
+        session_dir = workspace_root / "data" / "recordings" / sample_session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+
+        input_video = session_dir / "input.mp4"
+        input_video.write_text("mock video")
+
         session = Session(
             session_id=sample_session_id,
             topic="Test",
-            camera_file="data/recordings/test/camera.mp4",
+            video_file=str(input_video),
         )
         sm = SessionManager(str(workspace_root))
         sm.save_session(session)
@@ -75,7 +94,7 @@ class TestProxiesStage:
 
             result = proxies.run(sample_session_id, str(workspace_root))
 
-        assert "camera_proxy" in result
+        assert "proxy_path" in result
         assert "audio_path" in result
 
 
@@ -88,10 +107,15 @@ class TestProxiesFFmpegCalls:
         mock_ffmpeg.create_proxy.return_value = None
         mock_ffmpeg.extract_audio.return_value = None
 
+        session_dir = workspace_root / "data" / "recordings" / sample_session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        input_video = session_dir / "input.mp4"
+        input_video.write_text("mock video")
+
         session = Session(
             session_id=sample_session_id,
             topic="Test",
-            camera_file="test.mp4",
+            video_file=str(input_video),
         )
         sm = SessionManager(str(workspace_root))
         sm.save_session(session)
@@ -106,10 +130,15 @@ class TestProxiesFFmpegCalls:
         mock_ffmpeg.create_proxy.return_value = None
         mock_ffmpeg.extract_audio.return_value = None
 
+        session_dir = workspace_root / "data" / "recordings" / sample_session_id
+        session_dir.mkdir(parents=True, exist_ok=True)
+        input_video = session_dir / "input.mp4"
+        input_video.write_text("mock video")
+
         session = Session(
             session_id=sample_session_id,
             topic="Test",
-            camera_file="test.mp4",
+            video_file=str(input_video),
         )
         sm = SessionManager(str(workspace_root))
         sm.save_session(session)
@@ -119,20 +148,18 @@ class TestProxiesFFmpegCalls:
         mock_ffmpeg.extract_audio.assert_called()
 
     @patch("scripts.core.stages.proxies.ffmpeg")
-    def test_no_ffmpeg_when_no_camera(self, mock_ffmpeg, workspace_root, sample_session_id):
-        """Test no FFmpeg calls when no camera file."""
+    def test_input_not_found_raises(self, mock_ffmpeg, workspace_root, sample_session_id):
+        """Test error when input video not found."""
         session = Session(
             session_id=sample_session_id,
             topic="Test",
-            camera_file="",  # No camera file
+            video_file="",
         )
         sm = SessionManager(str(workspace_root))
         sm.save_session(session)
 
-        proxies.run(sample_session_id, str(workspace_root))
-
-        mock_ffmpeg.create_proxy.assert_not_called()
-        mock_ffmpeg.extract_audio.assert_not_called()
+        with pytest.raises(StageError, match="Input video not found"):
+            proxies.run(sample_session_id, str(workspace_root))
 
 
 class TestProxiesOutput:
@@ -141,13 +168,12 @@ class TestProxiesOutput:
     def test_output_keys(self):
         """Test output has required keys."""
         output = {
-            "camera_proxy": "/path/to/camera.mp4",
-            "screen_proxy": "/path/to/screen.mp4",
+            "proxy_path": "/path/to/proxy.mp4",
             "audio_path": "/path/to/audio.wav",
             "session_status": "proxied",
         }
 
-        assert "camera_proxy" in output
+        assert "proxy_path" in output
         assert "audio_path" in output
         assert "session_status" in output
 
