@@ -129,6 +129,51 @@ entonces
 pues
 """)
 
+    # audio_processing.json (global defaults)
+    (config_dir / "audio_processing.json").write_text("""{
+  "highpass": {
+    "enabled": true,
+    "frequency": 80,
+    "poles": 2,
+    "description": "Remove low rumble below frequency"
+  },
+  "eq_boxiness": {
+    "enabled": true,
+    "frequency": 450,
+    "gain": -3,
+    "width": 300,
+    "description": "Remove boxy sound (400-500Hz)"
+  },
+  "compressor": {
+    "enabled": true,
+    "threshold": -24,
+    "ratio": 3.5,
+    "attack": 5,
+    "release": 100,
+    "makeup": 4,
+    "knee": 1,
+    "description": "Voice compression"
+  },
+  "highshelf": {
+    "enabled": true,
+    "frequency": 10000,
+    "gain": 3,
+    "description": "Add air/crispness (10kHz+)"
+  },
+  "limiter": {
+    "enabled": true,
+    "ceiling": -1,
+    "description": "Prevent clipping"
+  },
+  "loudnorm": {
+    "enabled": true,
+    "I": -16,
+    "TP": -1.5,
+    "LRA": 11,
+    "description": "Volume normalization (podcast standard)"
+  }
+}""")
+
     # Create templates directory
     templates_dir = root / "templates" / "subtitles"
     templates_dir.mkdir(parents=True, exist_ok=True)
