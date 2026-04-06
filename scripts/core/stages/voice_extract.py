@@ -435,9 +435,9 @@ def _apply_rnnoise(input_wav: str, output_wav: str) -> bool:
             if len(chunk) < chunk_size:
                 chunk = np.pad(chunk, (0, chunk_size - len(chunk)))
 
-            # Denoise chunk - denoise_chunk returns a generator that yields processed frames
-            for denoised_frame in rnnoise.denoise_chunk(chunk):
-                # Each yield is a (processed_frame, _) tuple
+            # Denoise chunk - denoise_chunk returns a generator that yields (processed_frame, _) tuples
+            for denoised_frame, _ in rnnoise.denoise_chunk(chunk):
+                # Only append the processed frame, not the tuple
                 result_chunks.append(denoised_frame)
 
             if (i // chunk_size + 1) % 10 == 0:
