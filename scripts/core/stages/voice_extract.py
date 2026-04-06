@@ -435,10 +435,14 @@ def _apply_rnnoise(input_wav: str, output_wav: str) -> bool:
             if len(chunk) < chunk_size:
                 chunk = np.pad(chunk, (0, chunk_size - len(chunk)))
 
-            # Denoise chunk - denoise_chunk returns a generator that yields (processed_frame, _) tuples
-            for denoised_frame, _ in rnnoise.denoise_chunk(chunk):
-                # Only append the processed frame, not the tuple
-                result_chunks.append(denoised_frame)
+            # Reshape to 2D [channels, samples] - pyrnnoise expects 2D input
+            # For mono audio: shape must be (1, chunk_size)
+            chunk_2d = chunk.reshape(1, -1)
+
+            # Denoise chunk - denoise_chunk yields (speech_prob, denoised_frame) tuples
+            for speech_prob, denoised_frame in rnnoise.denoise_chunk(chunk_2d):
+                # denoised_frame has shape (1, 480) - squeeze to 1D for concatenation
+                result_chunks.append(denoised_frame.squeeze(0))
 
             if (i // chunk_size + 1) % 10 == 0:
                 print(f"  Processed {i // chunk_size + 1}/{total_chunks}...")
