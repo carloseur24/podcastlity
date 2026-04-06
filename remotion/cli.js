@@ -264,6 +264,12 @@ if (options.scale) {
 }
 log(colors.green, '└──────────────────────────────────────────────────┘');
 
+// Copy video to public folder (Remotion server can't handle file:// URLs)
+const videoInfo = copyVideoToPublic(inputPath);
+if (videoInfo.wasCopied) {
+  log(colors.green, `Video copied: ${videoInfo.filename}`);
+}
+
 // Run render
 log(colors.cyan, '\n▶ Starting render...\n');
 
@@ -285,7 +291,7 @@ if (videoDuration && captionDuration) {
 }
 
 renderVideo(
-  inputPath,
+  videoInfo.filename,  // Use filename from public folder, not full path
   outputPath,
   captionsPath,
   presetPath,

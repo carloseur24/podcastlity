@@ -32,20 +32,10 @@ const MainComposition: React.FC = () => {
   const { videoSrc, audioSrc, captions, preset, trimStartFrames, outputWidth, outputHeight } =
     inputProps;
 
-  // Handle absolute file paths - convert to file:// URL for external videos
-  let videoSource: string;
-  if (videoSrc && (videoSrc.startsWith('/') || videoSrc.match(/^[A-Z]:/i))) {
-    // Absolute path - use file:// URL
-    videoSource = `file://${videoSrc}`;
-    console.log("[Remotion] Using absolute path:", videoSource);
-  } else if (videoSrc) {
-    // Relative path - use staticFile
-    const videoFilename = videoSrc.split("/").pop() || "input_video.mp4";
-    videoSource = staticFile(videoFilename);
-    console.log("[Remotion] Using static file:", videoFilename);
-  } else {
-    videoSource = staticFile("input_video.mp4");
-  }
+  // Video is in public folder - use staticFile
+  const videoFilename = videoSrc?.split("/").pop() || "input_video.mp4";
+  const videoSource = staticFile(videoFilename);
+  console.log("[Remotion] Using static file from public:", videoFilename);
 
   console.log(
     "[Remotion] Video source:",
