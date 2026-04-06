@@ -226,6 +226,9 @@ async function renderVideo(
   // Import Remotion modules
   const { renderMedia, selectComposition } = require("@remotion/renderer");
 
+  // Log the video path (for debugging)
+  const videoFilename = path.basename(inputPath);
+  
   // Pass absolute path directly - index.tsx will handle file:// URL
   const inputProps = {
     videoSrc: inputPathAbs,  // Absolute path - index.tsx converts to file:// URL
@@ -247,7 +250,7 @@ async function renderVideo(
     outputHeight,
     isLowRes ? "(low-res proxy)" : "(full)"
   );
-  console.log("[remotion] Video filename for staticFile:", videoFilename);
+  console.log("[remotion] Video path:", inputPathAbs);
   console.log("[remotion] DurationInFrames:", inputProps.durationInFrames);
 
   try {

@@ -40,6 +40,66 @@ function getLastCaptionTime(captionsPath) {
   try {
     const captions = JSON.parse(fs.readFileSync(captionsPath, 'utf8'));
     if (!captions || captions.length === 0) return null;
+    const lastCaption = captions[captions.length - 1];
+    if (lastCaption.endMs) {
+      return lastCaption.endMs / 1000;
+    }
+    return lastCaption.end || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+// Copy video to public folder for Remotion (file:// doesn't work with server-side rendering)
+function copyVideoToPublic(inputPath) {
+  const publicDir = path.join(__dirname, 'public');
+  const videoFilename = path.basename(inputPath);
+  const destPath = path.join(publicDir, videoFilename);
+  
+  // Check if already exists
+  if (fs.existsSync(destPath)) {
+    const srcStat = fs.statSync(inputPath);
+    const destStat = fs.statSync(destPath);
+    if (srcStat.size === destStat.size && srcStat.mtime <= destStat.mtime) {
+      log(colors.dim, `Video already in public folder: ${videoFilename}`);
+      return { filename: videoFilename, wasCopied: false };
+    }
+  }
+  
+  // Check file size (warn if > 500MB)
+  const fileSizeMB = fs.statSync(inputPath).size / (1024 * 1024);
+  if (fileSizeMB > 500) {
+    log(colors.yellow, `Warning: Video is ${fileSizeMB.toFixed(1)}MB (> 500MB). This may be slow.`);
+  }
+  
+  log(colors.cyan, `Copying video to public folder (${fileSizeMB.toFixed(1)}MB)...`);
+  fs.copyFileSync(inputPath, destPath);
+  
+  // Update mtime to prevent unnecessary re-copies
+  fs.utimesSync(destPath, new Date(), fs.statSync(inputPath).mtime);
+  
+  return { filename: videoFilename, wasCopied: true };
+}
+
+// Get video duration using ffprobe
+function getVideoDuration(videoPath) {
+  try {
+    const output = execSync(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`,
+      { encoding: 'utf8' }
+    );
+    return parseFloat(output.trim());
+  } catch (e) {
+    log(colors.yellow, 'Warning: Could not detect video duration, using default');
+    return null;
+  }
+}
+
+// Get last caption timestamp from JSON
+function getLastCaptionTime(captionsPath) {
+  try {
+    const captions = JSON.parse(fs.readFileSync(captionsPath, 'utf8'));
+    if (!captions || captions.length === 0) return null;
     // Captions have 'end' in seconds or 'endMs' in milliseconds
     const lastCaption = captions[captions.length - 1];
     if (lastCaption.endMs) {
