@@ -204,6 +204,9 @@ def _apply_podcast_chain(input_wav: str, output_wav: str, audio_config: dict | N
     try:
         result = subprocess.run(cmd, capture_output=True, text=True, timeout=180)
         if result.returncode == 0:
+            # Extract loudnorm target for log message
+            ln = audio_config.get("loudnorm", {})
+            target_lufs = ln.get("I", -16)
             print(
                 f"[voice_extract] Applied podcast chain: HPF(80Hz) + BellCut(450Hz,-3dB) + Compressor(threshold=-24dB,ratio=3.5) + AirShelf(10kHz,+3dB) + Limiter(-1dB) + loudnorm({target_lufs}LUFS)"
             )
