@@ -226,11 +226,9 @@ async function renderVideo(
   // Import Remotion modules
   const { renderMedia, selectComposition } = require("@remotion/renderer");
 
-  // The video should be in public folder for staticFile to work
-  const videoFilename = path.basename(inputPath);
-
+  // Pass absolute path directly - index.tsx will handle file:// URL
   const inputProps = {
-    videoSrc: videoFilename,
+    videoSrc: inputPathAbs,  // Absolute path - index.tsx converts to file:// URL
     captions: captions,
     preset: preset,
     durationInFrames: frameCount,

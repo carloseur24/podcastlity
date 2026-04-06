@@ -934,11 +934,11 @@ def run_stage_3_subtitles() -> None:
     start_sec = None
     end_sec = None
     if use_range:
-        start_sec = menus.Prompt.ask("Segundo inicial", default="0")
-        end_sec = menus.Prompt.ask("Segundo final", default="")
-        start_sec = int(start_sec)
-        if end_sec:
-            end_sec = int(end_sec)
+        start_sec_str = menus.Prompt.ask("Segundo inicial", default="0")
+        end_sec_str = menus.Prompt.ask("Segundo final", default="")
+        start_sec = int(start_sec_str)
+        if end_sec_str.strip():
+            end_sec = int(end_sec_str)
 
     # Step 7: Ask for resolution
     menus.console.print("\n[bold]Resolución:[/bold]")

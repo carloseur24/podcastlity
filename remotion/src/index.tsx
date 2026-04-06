@@ -6,7 +6,7 @@ import {
   staticFile,
   getInputProps,
 } from "remotion";
-import { Video } from "@remotion/media";
+import { OffthreadVideo } from "remotion";
 import { KineticSubtitle } from "./components/SubtitleLayer";
 import type { SubtitlePreset } from "./components/SubtitleLayer";
 
@@ -32,12 +32,24 @@ const MainComposition: React.FC = () => {
   const { videoSrc, audioSrc, captions, preset, trimStartFrames, outputWidth, outputHeight } =
     inputProps;
 
-  const videoFilename = videoSrc?.split("/").pop() || "input_video.mp4";
-  const videoSource = staticFile(videoFilename);
+  // Handle absolute file paths - convert to file:// URL for external videos
+  let videoSource: string;
+  if (videoSrc && (videoSrc.startsWith('/') || videoSrc.match(/^[A-Z]:/i))) {
+    // Absolute path - use file:// URL
+    videoSource = `file://${videoSrc}`;
+    console.log("[Remotion] Using absolute path:", videoSource);
+  } else if (videoSrc) {
+    // Relative path - use staticFile
+    const videoFilename = videoSrc.split("/").pop() || "input_video.mp4";
+    videoSource = staticFile(videoFilename);
+    console.log("[Remotion] Using static file:", videoFilename);
+  } else {
+    videoSource = staticFile("input_video.mp4");
+  }
 
   console.log(
-    "[Remotion] Video:",
-    videoFilename,
+    "[Remotion] Video source:",
+    videoSource,
     "| Trim:",
     trimStartFrames || 0,
     "| Captions:",
@@ -47,10 +59,10 @@ const MainComposition: React.FC = () => {
 
   return (
     <AbsoluteFill style={{ backgroundColor: "#000" }}>
-      {/* Using @remotion/media Video - WebCodecs-based, FASTEST */}
-      <Video
+      {/* Using OffthreadVideo for external file support */}
+      <OffthreadVideo
         src={videoSource}
-        trimBefore={trimStartFrames || 0}
+        trimStart={trimStartFrames ? trimStartFrames / (inputProps.fps || 30) : 0}
         style={{ width: "100%", height: "100%" }}
       />
 

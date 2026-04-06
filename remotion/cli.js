@@ -4,6 +4,7 @@ console.log('Running CLI...');
 const { renderVideo } = require('./src/render.js');
 const fs = require('fs');
 const path = require('path');
+const { execSync } = require('child_process');
 
 // CLI Colors
 const colors = {
@@ -18,6 +19,36 @@ const colors = {
 
 function log(color, ...args) {
   console.log(color, ...args, colors.reset);
+}
+
+// Get video duration using ffprobe
+function getVideoDuration(videoPath) {
+  try {
+    const output = execSync(
+      `ffprobe -v error -show_entries format=duration -of default=noprint_wrappers=1:nokey=1 "${videoPath}"`,
+      { encoding: 'utf8' }
+    );
+    return parseFloat(output.trim());
+  } catch (e) {
+    log(colors.yellow, 'Warning: Could not detect video duration, using default');
+    return null;
+  }
+}
+
+// Get last caption timestamp from JSON
+function getLastCaptionTime(captionsPath) {
+  try {
+    const captions = JSON.parse(fs.readFileSync(captionsPath, 'utf8'));
+    if (!captions || captions.length === 0) return null;
+    // Captions have 'end' in seconds or 'endMs' in milliseconds
+    const lastCaption = captions[captions.length - 1];
+    if (lastCaption.endMs) {
+      return lastCaption.endMs / 1000;
+    }
+    return lastCaption.end || null;
+  } catch (e) {
+    return null;
+  }
 }
 
 // Resolution presets
@@ -176,13 +207,30 @@ log(colors.green, '└───────────────────�
 // Run render
 log(colors.cyan, '\n▶ Starting render...\n');
 
+// Calculate duration: use video duration or caption end time
+let videoDuration = getVideoDuration(inputPath);
+let captionDuration = getLastCaptionTime(captionsPath);
+
+// Use the shorter of video/caption duration, default to 60s
+let duration = 60;
+if (videoDuration && captionDuration) {
+  duration = Math.min(videoDuration, captionDuration);
+  log(colors.dim, `Duration: video=${videoDuration.toFixed(1)}s, captions=${captionDuration.toFixed(1)}s, using=${duration.toFixed(1)}s`);
+} else if (videoDuration) {
+  duration = videoDuration;
+  log(colors.dim, `Duration: video=${videoDuration.toFixed(1)}s`);
+} else if (captionDuration) {
+  duration = captionDuration;
+  log(colors.dim, `Duration: captions=${captionDuration.toFixed(1)}s`);
+}
+
 renderVideo(
   inputPath,
   outputPath,
   captionsPath,
   presetPath,
   30, // fps
-  57, // default duration (will be calculated from range)
+  Math.ceil(duration), // duration in seconds
   width,
   height,
   renderOptions
