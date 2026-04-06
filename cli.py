@@ -812,60 +812,43 @@ def run_stage_3_subtitles() -> None:
         menus.print_error("Archivo de video requerido")
         return
 
-    # Step 2: Check for existing audio or extract it
+    # Step 2: Always extract audio from the source video (disconnected from audio processing stage)
     video_path_obj = Path(video_path)
     video_stem = video_path_obj.stem
 
-    # Check if there's already an audio file for this video
-    # Use same directory structure as session - check in output/audio
-    audio_dir = Path(WORKSPACE_ROOT) / "output" / "audio"
-    audio_path = None
+    menus.console.print("\n[bold]Extrayendo audio del video seleccionado...[/bold]")
+    # Extract audio using ffmpeg - use temp directory
+    temp_audio = Path(WORKSPACE_ROOT) / "output" / "temp" / f"{video_stem}_audio.wav"
+    temp_audio.parent.mkdir(parents=True, exist_ok=True)
 
-    # Look for existing audio files in output/audio (any session subfolder)
-    if audio_dir.exists():
-        for session_audio_dir in audio_dir.iterdir():
-            if session_audio_dir.is_dir():
-                for audio_file in session_audio_dir.glob("*.wav"):
-                    # Check if this audio belongs to our video
-                    if video_stem in audio_file.name or "master" in audio_file.name:
-                        audio_path = audio_file
-                        break
+    import subprocess
 
-    # Step 3: Extract audio if not found
-    if audio_path is None or not audio_path.exists():
-        menus.console.print("\n[bold]Extrayendo audio para transcripción...[/bold]")
-        # Extract audio using ffmpeg - use temp directory
-        temp_audio = Path(WORKSPACE_ROOT) / "output" / "temp" / f"{video_stem}_audio.wav"
-        temp_audio.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-y",
+        "-i",
+        str(video_path_obj.absolute()),
+        "-vn",
+        "-acodec",
+        "pcm_s16le",
+        "-ar",
+        "16000",
+        "-ac",
+        "1",
+        str(temp_audio),
+    ]
 
-        import subprocess
-
-        ffmpeg_cmd = [
-            "ffmpeg",
-            "-y",
-            "-i",
-            str(video_path_obj.absolute()),
-            "-vn",
-            "-acodec",
-            "pcm_s16le",
-            "-ar",
-            "16000",
-            "-ac",
-            "1",
-            str(temp_audio),
-        ]
-
-        try:
-            result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=300)
-            if result.returncode == 0:
-                audio_path = temp_audio
-                menus.print_success("Audio extraído")
-            else:
-                menus.print_error(f"Error extrayendo audio: {result.stderr}")
-                return
-        except Exception as e:
-            menus.print_error(f"Error extrayendo audio: {e}")
+    try:
+        result = subprocess.run(ffmpeg_cmd, capture_output=True, text=True, timeout=300)
+        if result.returncode == 0:
+            audio_path = temp_audio
+            menus.print_success("Audio extraído")
+        else:
+            menus.print_error(f"Error extrayendo audio: {result.stderr}")
             return
+    except Exception as e:
+        menus.print_error(f"Error extrayendo audio: {e}")
+        return
 
     # Verify we have a valid audio file to transcribe
     if audio_path is None or not audio_path.exists():
@@ -878,15 +861,16 @@ def run_stage_3_subtitles() -> None:
     )
     transcript_file.parent.mkdir(parents=True, exist_ok=True)
 
+    # Always regenerate if user doesn't want to reuse
+    do_transcribe = True
     if transcript_file.exists():
         menus.print_info(f"Transcripción existente encontrada: {transcript_file.name}")
         reuse = menus.Confirm.ask(
             "\n[bold]¿Reusar transcripción existente?[/bold] (s/n)", default=True
         )
-        if not reuse:
-            transcript_file = None
+        do_transcribe = not reuse
 
-    if transcript_file is None or not transcript_file.exists():
+    if do_transcribe:
         menus.console.print("\n[bold]Transcribiendo audio con Whisper...[/bold]")
         try:
             from faster_whisper import WhisperModel
