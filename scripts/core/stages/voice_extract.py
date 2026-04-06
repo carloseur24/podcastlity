@@ -400,64 +400,42 @@ def _apply_rnnoise(input_wav: str, output_wav: str) -> bool:
     """
     Apply RNNoise neural noise suppression to clean voice audio.
 
-    RNNoise uses deep learning to suppress noise while preserving voice quality.
-    It's specifically designed for voice/podcast audio with background noise.
+    Uses pyrnnoise.denoise_wav() which handles all format conversions internally.
     """
     try:
-        # Read audio
-        original_rate, audio = wavfile.read(input_wav)
-        print(f"[voice_extract] Read audio: {original_rate}Hz, {len(audio)} samples")
+        # Ensure mono at 48kHz before processing (denoise_wav requires specific format)
+        temp_mono = input_wav.replace(".wav", "_mono.wav")
 
-        # Convert stereo to mono
+        # Convert to mono if needed
+        rate, audio = wavfile.read(input_wav)
         if len(audio.shape) > 1:
-            audio = audio.mean(axis=1)
-
-        # Convert to float32 in range [-1, 1]
-        if audio.dtype == np.int16:
-            audio = audio.astype(np.float32) / 32768.0
+            audio = audio.mean(axis=1).astype(np.int16)
         else:
-            audio = audio.astype(np.float32)
+            audio = audio.astype(np.int16)
 
-        # Get RNNoise model (works at 48kHz natively)
-        rnnoise = _get_rnnoise_model(sample_rate=original_rate)
+        # Resample to 48kHz if needed
+        if rate != 48000:
+            from scipy.signal import resample
 
-        # Process in 1-second chunks
-        chunk_size = original_rate  # 1 second at original sample rate
-        result_chunks = []
+            num_samples = int(len(audio) * 48000 / rate)
+            audio = resample(audio, num_samples).astype(np.int16)
 
-        total_chunks = len(audio) // chunk_size + (1 if len(audio) % chunk_size else 0)
-        print(f"[voice_extract] Running RNNoise ({total_chunks} chunks)...")
+        wavfile.write(temp_mono, 48000, audio)
 
-        for i in range(0, len(audio), chunk_size):
-            chunk = audio[i : i + chunk_size]
+        # Process with RNNoise using denoise_wav (handles int16 internally)
+        print("[voice_extract] Running RNNoise...")
+        rnnoise = _get_rnnoise_model(sample_rate=48000)
 
-            # Pad if needed
-            if len(chunk) < chunk_size:
-                chunk = np.pad(chunk, (0, chunk_size - len(chunk)))
+        frame_count = 0
+        for speech_prob in rnnoise.denoise_wav(temp_mono, output_wav):
+            frame_count += 1
+            if frame_count % 100 == 0:
+                print(f"  Processed {frame_count} frames...")
 
-            # Reshape to 2D [channels, samples] - pyrnnoise expects 2D input
-            # For mono audio: shape must be (1, chunk_size)
-            chunk_2d = chunk.reshape(1, -1)
+        # Cleanup temp file
+        Path(temp_mono).unlink(missing_ok=True)
 
-            # Denoise chunk - denoise_chunk yields (speech_prob, denoised_frame) tuples
-            for speech_prob, denoised_frame in rnnoise.denoise_chunk(chunk_2d):
-                # denoised_frame has shape (1, 480) - squeeze to 1D for concatenation
-                result_chunks.append(denoised_frame.squeeze(0))
-
-            if (i // chunk_size + 1) % 10 == 0:
-                print(f"  Processed {i // chunk_size + 1}/{total_chunks}...")
-
-        # Concatenate ALL frames and trim to original length
-        result = np.concatenate(result_chunks)[: len(audio)]
-        print(f"[voice_extract] RNNoise processed: {len(result)} samples")
-
-        # Convert back to int16
-        result = np.clip(result, -1.0, 1.0)
-        result = (result * 32767).astype(np.int16)
-
-        # Save
-        wavfile.write(output_wav, original_rate, result)
-        print(f"[voice_extract] Saved RNNoise processed audio: {output_wav}")
+        print(f"[voice_extract] RNNoise processed {frame_count} frames")
         return True
 
     except Exception as e:
